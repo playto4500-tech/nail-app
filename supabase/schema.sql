@@ -25,7 +25,7 @@ create table if not exists public.appointments (
   appointment_date date not null,
   appointment_time time not null,
   appointment_price integer not null check (appointment_price > 0),
-  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'past')),
+  status text not null default 'scheduled' check (status in ('confirmed', 'cancelled', 'scheduled')),
   notes text,
   created_at timestamptz not null default now()
 );
@@ -81,6 +81,14 @@ for insert
 to anon, authenticated
 with check (category in ('service', 'addon') and price > 0 and char_length(name) > 0);
 
+drop policy if exists "Anyone can update services" on public.services;
+create policy "Anyone can update services"
+on public.services
+for update
+to anon, authenticated
+using (true)
+with check (category in ('service', 'addon') and price > 0 and char_length(name) > 0);
+
 drop policy if exists "Anyone can read appointments" on public.appointments;
 create policy "Anyone can read appointments"
 on public.appointments
@@ -99,8 +107,30 @@ with check (
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
-  and status in ('confirmed', 'cancelled', 'past')
+  and status in ('confirmed', 'cancelled', 'scheduled')
 );
+
+drop policy if exists "Anyone can update appointments" on public.appointments;
+create policy "Anyone can update appointments"
+on public.appointments
+for update
+to anon, authenticated
+using (true)
+with check (
+  client_id is not null
+  and service_id is not null
+  and char_length(client_name) > 0
+  and char_length(service_name) > 0
+  and appointment_price > 0
+  and status in ('confirmed', 'cancelled', 'scheduled')
+);
+
+drop policy if exists "Anyone can delete appointments" on public.appointments;
+create policy "Anyone can delete appointments"
+on public.appointments
+for delete
+to anon, authenticated
+using (true);
 
 drop policy if exists "Anyone can read appointment addons" on public.appointment_addons;
 create policy "Anyone can read appointment addons"
@@ -115,6 +145,13 @@ on public.appointment_addons
 for insert
 to anon, authenticated
 with check (appointment_id is not null and service_id is not null and addon_price > 0);
+
+drop policy if exists "Anyone can delete appointment addons" on public.appointment_addons;
+create policy "Anyone can delete appointment addons"
+on public.appointment_addons
+for delete
+to anon, authenticated
+using (true);
 
 drop policy if exists "Anyone can read inventory items" on public.inventory_items;
 create policy "Anyone can read inventory items"
@@ -132,9 +169,14 @@ with check (char_length(name) > 0 and quantity >= 0);
 
 insert into public.services (category, name, price)
 values
-  ('service', 'Manicure hybrydowy', 120),
-  ('service', 'Przedłużanie paznokci', 180),
-  ('service', 'Uzupełnienie hybrydy', 90),
-  ('addon', 'French', 25),
-  ('addon', 'Pyłek', 20)
+  ('service', 'Uzupełnienie', 100),
+  ('service', 'Przedłużenie żelowe do 2', 120),
+  ('service', 'Przedłużenie żelowe od 2', 140),
+  ('service', 'Hybryda', 80),
+  ('service', 'Manicure', 50),
+  ('service', 'Pedicure', 80),
+  ('service', 'Żel na naturalnej płytce', 100),
+  ('addon', 'Wzorki', 20),
+  ('addon', 'French', 10),
+  ('addon', 'Baby boomer', 20)
 on conflict (name) do nothing;

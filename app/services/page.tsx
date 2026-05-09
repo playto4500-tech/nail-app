@@ -1,10 +1,7 @@
 import { createServiceAction } from "../actions/services";
+import ServicesExperience from "../../components/ServicesExperience";
 import { getServices } from "../../lib/data/services";
 import { isSupabaseConfigured } from "../../lib/supabase/env";
-
-function formatPrice(price: number) {
-  return `${price} zł`;
-}
 
 export default async function ServicesPage() {
   if (!isSupabaseConfigured()) {
@@ -58,7 +55,7 @@ export default async function ServicesPage() {
             <div>
               <p className="text-sm font-semibold text-slate-900">Dodaj pozycję do cennika</p>
               <p className="mt-1 text-sm text-slate-500">
-                Możesz dodać główną usługę albo dodatek. Dodatki są już w bazie, ale do wizyty podepniemy je później.
+                Możesz dodać główną usługę albo dodatek. Oba typy pozycji są dostępne przy tworzeniu wizyty.
               </p>
             </div>
 
@@ -111,39 +108,19 @@ export default async function ServicesPage() {
               <p className="mt-1 text-sm text-slate-500">Główne pozycje z cennika.</p>
             </div>
 
-            {serviceItems.map((service) => (
-              <div
-                key={service.id}
-                className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-4"
-              >
-                <p className="text-sm text-slate-500">{service.name}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {formatPrice(service.price)}
-                </p>
-              </div>
-            ))}
+            <ServicesExperience services={serviceItems} />
           </section>
 
           <section className="space-y-3 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
             <div>
               <p className="text-sm font-semibold text-slate-900">Dodatki</p>
               <p className="mt-1 text-sm text-slate-500">
-                Te pozycje są już zapisane w bazie, ale jeszcze nie są podpinane do wizyty.
+                Te pozycje można zaznaczyć przy dodawaniu albo edycji wizyty.
               </p>
             </div>
 
             {addonItems.length > 0 ? (
-              addonItems.map((addon) => (
-                <div
-                  key={addon.id}
-                  className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-4"
-                >
-                  <p className="text-sm text-slate-500">{addon.name}</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {formatPrice(addon.price)}
-                  </p>
-                </div>
-              ))
+              <ServicesExperience services={addonItems} />
             ) : (
               <div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="text-sm text-slate-500">

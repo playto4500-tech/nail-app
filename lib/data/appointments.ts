@@ -1,10 +1,11 @@
 import { createClient } from "../../utils/supabase/server";
 import type { ClientStatus } from "./clients";
 
-export type AppointmentStatus = "confirmed" | "cancelled" | "past";
+export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled";
 
 export type Appointment = {
   id: number;
+  clientId: number;
   clientName: string;
   clientInstagramHandle: null | string;
   clientStatus: "regular" | "new";
@@ -17,6 +18,7 @@ export type Appointment = {
   notes: string;
   createdAt: string;
   addons: Array<{
+    serviceId: number;
     name: string;
     price: number;
   }>;
@@ -24,6 +26,7 @@ export type Appointment = {
 
 type AppointmentRow = {
   id: number;
+  client_id: number;
   client_name: string;
   client_instagram_handle: null | string;
   appointment_date: string;
@@ -45,13 +48,16 @@ type AppointmentRow = {
   appointment_addons:
     | null
     | Array<{
+        service_id: number;
         addon_price: number;
         services:
           | null
           | {
+              id: number;
               name: string;
             }
           | Array<{
+              id: number;
               name: string;
             }>;
       }>;
@@ -62,7 +68,7 @@ export async function getAppointments() {
   const appointmentsResponse = await supabase
     .from("appointments")
     .select(
-      "id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, status, notes, created_at, clients(status), appointment_addons(addon_price, services(name))",
+      "id, client_id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, status, notes, created_at, clients(status), appointment_addons(service_id, addon_price, services(id, name))",
     )
     .order("appointment_date", { ascending: true })
     .order("appointment_time", { ascending: true });
@@ -83,6 +89,7 @@ export async function getAppointments() {
         : addon.services;
 
       return {
+        serviceId: addon.service_id,
         name: relatedService?.name ?? "Dodatek",
         price: addon.addon_price,
       };
@@ -90,6 +97,7 @@ export async function getAppointments() {
 
     return {
       id: appointment.id,
+      clientId: appointment.client_id,
       clientName: appointment.client_name || "Nieznana klientka",
       clientInstagramHandle: appointment.client_instagram_handle ?? null,
       clientStatus: relatedClient?.status ?? "new",
@@ -143,6 +151,58 @@ export async function createAppointment(input: {
   return data.id as number;
 }
 
+export async function updateAppointment(input: {
+  appointmentId: number;
+  clientId: number;
+  clientName: string;
+  clientInstagramHandle: null | string;
+  date: string;
+  time: string;
+  serviceId: number;
+  serviceName: string;
+  price: number;
+  status: AppointmentStatus;
+  notes: string;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      client_id: input.clientId,
+      client_name: input.clientName,
+      client_instagram_handle: input.clientInstagramHandle || null,
+      appointment_date: input.date,
+      appointment_time: input.time,
+      service_id: input.serviceId,
+      service_name: input.serviceName,
+      appointment_price: input.price,
+      status: input.status,
+      notes: input.notes || null,
+    })
+    .eq("id", input.appointmentId);
+
+  if (error) {
+    throw new Error(`Failed to update appointment: ${error.message}`);
+  }
+}
+
+export async function updateAppointmentStatus(input: {
+  appointmentId: number;
+  status: AppointmentStatus;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      status: input.status,
+    })
+    .eq("id", input.appointmentId);
+
+  if (error) {
+    throw new Error(`Failed to update appointment status: ${error.message}`);
+  }
+}
+
 export async function createAppointmentAddons(input: {
   appointmentId: number;
   addons: Array<{
@@ -165,5 +225,26 @@ export async function createAppointmentAddons(input: {
 
   if (error) {
     throw new Error(`Failed to create appointment addons: ${error.message}`);
+  }
+}
+
+export async function deleteAppointmentAddons(appointmentId: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("appointment_addons")
+    .delete()
+    .eq("appointment_id", appointmentId);
+
+  if (error) {
+    throw new Error(`Failed to delete appointment addons: ${error.message}`);
+  }
+}
+
+export async function deleteAppointmentRecord(appointmentId: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("appointments").delete().eq("id", appointmentId);
+
+  if (error) {
+    throw new Error(`Failed to delete appointment: ${error.message}`);
   }
 }

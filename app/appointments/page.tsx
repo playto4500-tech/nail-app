@@ -1,45 +1,9 @@
 import { Suspense } from "react";
 import { getAppointments } from "../../lib/data/appointments";
+import { getClientSummaries } from "../../lib/data/clients";
+import { getServices } from "../../lib/data/services";
 import { isSupabaseConfigured } from "../../lib/supabase/env";
-
-function formatAppointmentDate(date: string) {
-  return new Intl.DateTimeFormat("pl-PL", {
-    day: "2-digit",
-    month: "2-digit",
-  }).format(new Date(date));
-}
-
-function formatPrice(price: number) {
-  return `${price} zł`;
-}
-
-function getAppointmentTotal(price: number, addons: Array<{ price: number }>) {
-  return price + addons.reduce((total, addon) => total + addon.price, 0);
-}
-
-function getStatusLabel(status: "confirmed" | "cancelled" | "past") {
-  if (status === "confirmed") {
-    return "Potwierdzona";
-  }
-
-  if (status === "cancelled") {
-    return "Anulowana";
-  }
-
-  return "Zakończona";
-}
-
-function getStatusClasses(status: "confirmed" | "cancelled" | "past") {
-  if (status === "confirmed") {
-    return "bg-emerald-100 text-emerald-700";
-  }
-
-  if (status === "cancelled") {
-    return "bg-rose-100 text-rose-700";
-  }
-
-  return "bg-slate-200 text-slate-700";
-}
+import AppointmentsExperience from "../../components/AppointmentsExperience";
 
 export default function AppointmentsPage() {
   if (!isSupabaseConfigured()) {
@@ -87,81 +51,18 @@ export default function AppointmentsPage() {
 }
 
 async function AppointmentsContent() {
-  const appointments = await getAppointments();
+  const [appointments, clients, services] = await Promise.all([
+    getAppointments(),
+    getClientSummaries(),
+    getServices(),
+  ]);
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-        <p className="text-sm text-slate-500">Zaplanowane wizyty</p>
-        <p className="mt-2 text-2xl font-semibold text-slate-900">{appointments.length}</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Nowe wizyty pojawią się tutaj od razu po zapisaniu.
-        </p>
-      </div>
-
-      {appointments.map((appointment) => (
-        <article
-          key={appointment.id}
-          className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm text-slate-500">
-                {formatAppointmentDate(appointment.date)} — {appointment.time}
-              </p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">
-                {appointment.clientName}
-              </p>
-              {appointment.clientInstagramHandle ? (
-                <p className="mt-1 text-sm text-slate-500">
-                  {appointment.clientInstagramHandle}
-                </p>
-              ) : null}
-            </div>
-
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(appointment.status)}`}
-            >
-              {getStatusLabel(appointment.status)}
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-2 text-sm text-slate-600">
-            <p>
-              Usługa:{" "}
-              <span className="font-medium text-slate-900">{appointment.serviceName}</span>
-            </p>
-            <p>
-              Cena:{" "}
-              <span className="font-medium text-slate-900">
-                {formatPrice(getAppointmentTotal(appointment.price, appointment.addons))}
-              </span>
-            </p>
-            <p>
-              Status klientki:{" "}
-              <span className="font-medium text-slate-900">
-                {appointment.clientStatus === "regular" ? "Stała klientka" : "Nowa klientka"}
-              </span>
-            </p>
-            {appointment.addons.length > 0 ? (
-              <div>
-                <p>
-                  Dodatki:{" "}
-                  <span className="font-medium text-slate-900">
-                    {appointment.addons
-                      .map((addon) => `${addon.name} (+${formatPrice(addon.price)})`)
-                      .join(", ")}
-                  </span>
-                </p>
-              </div>
-            ) : null}
-          </div>
-          {appointment.notes ? (
-            <p className="mt-3 text-sm text-slate-500">{appointment.notes}</p>
-          ) : null}
-        </article>
-      ))}
-    </section>
+    <AppointmentsExperience
+      appointments={appointments}
+      clients={clients}
+      services={services}
+    />
   );
 }
 

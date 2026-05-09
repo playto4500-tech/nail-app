@@ -85,13 +85,18 @@ export default function NewAppointmentForm({ clients, services }: Props) {
           </label>
 
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-700">Instagram handle</span>
-            <input
-              name="instagramHandle"
-              type="text"
-              placeholder="Np. @anna.nails"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-            />
+            <span className="text-sm font-medium text-slate-700">
+              Instagram handle <span className="font-normal text-slate-500">(opcjonalne)</span>
+            </span>
+            <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 focus-within:border-slate-400">
+              <span className="shrink-0 text-sm font-medium text-slate-500">@</span>
+              <input
+                name="instagramHandle"
+                type="text"
+                placeholder="annanails"
+                className="w-full min-w-0 bg-transparent pl-2 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </div>
           </label>
 
           <label className="block space-y-2">
@@ -150,14 +155,14 @@ export default function NewAppointmentForm({ clients, services }: Props) {
         </>
       )}
 
-      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
         <label className="block min-w-0 space-y-2">
           <span className="text-sm font-medium text-slate-700">Data</span>
           <input
             name="date"
             type="date"
             required
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
           />
         </label>
 
@@ -167,7 +172,7 @@ export default function NewAppointmentForm({ clients, services }: Props) {
             name="time"
             type="time"
             required
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
           />
         </label>
       </div>
@@ -275,12 +280,11 @@ export default function NewAppointmentForm({ clients, services }: Props) {
         <span className="text-sm font-medium text-slate-700">Status</span>
         <select
           name="status"
-          defaultValue="confirmed"
+          defaultValue="scheduled"
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
         >
           <option value="confirmed">Potwierdzona</option>
-          <option value="cancelled">Anulowana</option>
-          <option value="past">Zakończona</option>
+          <option value="scheduled">Zaplanowana</option>
         </select>
       </label>
 
@@ -289,7 +293,7 @@ export default function NewAppointmentForm({ clients, services }: Props) {
         <textarea
           name="notes"
           rows={4}
-          placeholder="Np. french, krótka płytka, alergia na pył"
+          placeholder="(opcjonalne)"
           className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
         />
       </label>
