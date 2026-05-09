@@ -1,0 +1,134 @@
+# Learning Log
+
+## Concepts learned
+- This file will track the big ideas we learn while building the app.
+- Next.js App Router uses `app/page.tsx` for the home route `/`.
+- Tailwind CSS utility classes can style elements directly in JSX.
+- `app/layout.tsx` jest wspólnym szablonem dla wszystkich stron.
+- Nowa strona `app/appointments/page.tsx` tworzy trasę `/appointments`.
+- Każdy nowy folder w `app/` z plikiem `page.tsx` tworzy nową trasę.
+- Możemy mieć wspólną nawigację w `app/layout.tsx` dla wszystkich stron.
+- `TopBar` jako klient (`use client`) może używać ścieżki w `usePathname()`.
+- Side menu może się płynnie wysuwać z lewej przy użyciu transformacji CSS.
+- `aria-current="page"` pomaga oznaczyć aktywny link w nawigacji.
+- `useRef()` może wskazywać konkretny element DOM, np. checkbox sterujący menu.
+- Dane można zapisać w tablicy obiektów i wyświetlić listę przez `.map()`.
+- Wspólny przycisk `fixed` można dodać w `layout.tsx`, żeby był widoczny na każdej stronie.
+- Gdy pasek jest `fixed`, trzeba dodać górny odstęp w layoucie, żeby treść nie chowała się pod nim.
+- Gdy layout już kontroluje wysokość ekranu, dodatkowe `min-h-screen` w każdej stronie może robić niechciany pusty obszar.
+- Globalne tło najlepiej ustawić w jednym miejscu, żeby nie pojawiały się ciemne "dziury" poza kartami i sekcjami.
+- Zagnieżdżona trasa jak `app/appointments/new/page.tsx` tworzy adres `/appointments/new`.
+- Prosty React Context może przechować wspólny stan UI między podstronami bez backendu.
+- Jedno wspólne źródło danych dla cennika zmniejsza ryzyko, że formularz i lista usług się rozjadą.
+- Server Action może zapisać dane do bazy i od razu zrobić `redirect()` lub `revalidatePath()`.
+- Supabase secret key powinna być używana tylko po stronie serwera.
+- `@supabase/ssr` daje osobne klienty dla przeglądarki i serwera oraz integrację z cookies.
+- Dobra struktura bazy zmniejsza liczbę późniejszych migracji, nawet jeśli część tabel nie ma jeszcze gotowego UI.
+- Mniej zapytań do bazy i lżejsze `select` zwykle dają większą poprawę płynności niż samo dodanie spinnera.
+
+## Files changed
+- `LEARNING.md` — zaktualizowałem notatkę o nowym kroku.
+- `components/TopBar.tsx` — zmieniłem górny pasek na menu wysuwane z lewej.
+- `app/layout.tsx` — usunąłem dolny pasek nawigacji i zostawiłem tylko górny topbar.
+- `components/TopBar.tsx` — dodałem aktywny stan linków i zamykanie menu po kliknięciu linku.
+- `app/layout.tsx` — zmieniłem język dokumentu na polski (`lang="pl"`).
+- `app/clients/page.tsx` — przeniosłem fake dane klientek do tablicy i wyrenderowałem listę przez `.map()`.
+- `app/page.tsx` — uprościłem ekran główny i zostawiłem prywatne powitanie dla Aliny.
+- `components/TopBar.tsx` — zmieniłem mały napis marki na `Nail Studio Manager`.
+- `components/FloatingAddVisitButton.tsx` — dodałem wspólny pływający przycisk `Dodaj wizytę`.
+- `app/layout.tsx` — dodałem dolny odstęp, żeby pływający przycisk nie zasłaniał treści.
+- `components/TopBar.tsx` — ustawiłem topbar na stałe u góry i zmniejszyłem jego wysokość.
+- `app/layout.tsx` — dodałem górny odstęp pod stały topbar.
+- `app/page.tsx`, `app/appointments/page.tsx`, `app/clients/page.tsx`, `app/services/page.tsx`, `app/money/page.tsx` — usunąłem `min-h-screen`, żeby nie tworzyć pustego miejsca na dole.
+- `app/globals.css` i `app/layout.tsx` — naprawiłem globalne tło, żeby ekran nie robił się czarny przy krótszej treści.
+- `components/FloatingAddVisitButton.tsx` — podpiąłem przycisk do trasy `/appointments/new`.
+- `app/appointments/new/page.tsx` — dodałem prosty formularz nowej wizyty.
+- `components/TopBar.tsx` — dodałem obsługę tytułu dla nowej trasy i aktywny stan dla podstron.
+- `components/AppointmentsProvider.tsx` — dodałem wspólny stan wizyt dostępny na stronie listy i formularza.
+- `app/appointments/page.tsx` — przerobiłem listę wizyt na dane z kontekstu i renderowanie przez `.map()`.
+- `app/appointments/new/page.tsx` — po zapisie dodaję wizytę do wspólnego stanu i wracam na `/appointments`.
+- `components/TopBar.tsx` i `components/FloatingAddVisitButton.tsx` — poprawiłem wyśrodkowanie tekstu.
+- `components/ServicesProvider.tsx` — dodałem wspólny cennik usług z kategoriami `service` i `addon`.
+- `app/services/page.tsx` — przerobiłem cennik na widok oparty o wspólne dane i dodałem formularz dodawania usług.
+- `app/appointments/new/page.tsx` — lista usług w formularzu jest teraz pobierana z cennika.
+- `components/AppointmentsProvider.tsx` i `components/ServicesProvider.tsx` — dodałem zapis do `localStorage`, żeby dane nie znikały po nawigacji.
+- `lib/supabase/` — dodałem konfigurację klienta serwerowego Supabase i sprawdzanie envów.
+- `lib/data/` — dodałem warstwę odczytu i zapisu wizyt oraz usług z bazy.
+- `app/actions/` — dodałem Server Actions do tworzenia usług i wizyt.
+- `supabase/schema.sql` — dodałem gotowy SQL do utworzenia tabel i startowych usług.
+- `.env.example` — dodałem wzór zmiennych środowiskowych dla Supabase.
+- `app/services/page.tsx`, `app/appointments/page.tsx`, `app/appointments/new/page.tsx` — przepiąłem z pamięci przeglądarki na Supabase.
+- `utils/supabase/client.ts` i `utils/supabase/server.ts` — dodałem klienty Supabase zgodnie z wariantem SSR.
+- `utils/supabase/middleware.ts` i `proxy.ts` — dodałem obsługę odświeżania sesji zgodnie z App Router / Next 16.
+- `.env.local` — dodałem URL i publishable key z promptu.
+- `lib/data/clients.ts` i `app/actions/clients.ts` — dodałem warstwę danych i zapis klientek do bazy.
+- `components/NewAppointmentForm.tsx` — dodałem formularz wizyty z przełącznikiem nowa klientka / istniejąca klientka i podglądem ceny z usługi.
+- `app/inventory/page.tsx` — dodałem placeholder informujący, że moduł zasobów jeszcze nie jest dostępny.
+- `supabase/schema.sql` — rozbudowałem schema o `clients`, `appointment_addons` i `inventory_items`.
+- `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` i `app/layout.tsx` — dodałem konfigurację web app pod iPhone i ikonę do ekranu głównego.
+- `lib/data/appointments.ts`, `lib/data/clients.ts`, `lib/data/services.ts`, `app/appointments/page.tsx`, `app/appointments/new/page.tsx` i `app/loading.tsx` — uprościłem zapytania, dodałem streaming i stany ładowania pod płynniejsze przejścia.
+
+## Code patterns learned
+- `app/clients/page.tsx`, `app/services/page.tsx`, `app/money/page.tsx` to nowe trasy.
+- `flex-wrap` pozwala na zawijanie linków w dolnym pasku przy małych ekranach.
+- `min-w-[72px]` w Tailwind zapewnia, że każdy link ma minimalną szerokość.
+- Wspólny komponent `BottomNav` działa na wszystkich stronach dzięki `layout.tsx`.
+- `use client` jest potrzebne, gdy komponent korzysta z `usePathname()`.
+- `useState` w React pozwala pokazać i ukryć wysuwane menu.
+- `translate-x-0` i `-translate-x-full` w Tailwind tworzą płynne wysuwanie.
+- Tablica obiektów z linkami pozwala generować menu przez `.map()` zamiast powtarzać ten sam kod.
+- `useRef<HTMLInputElement>(null)` daje dostęp do konkretnego inputa w TypeScript.
+- Każdy element renderowany w `.map()` powinien mieć unikalny `key`, np. `client.id`.
+- `position: fixed` utrzymuje element w tym samym miejscu ekranu nawet podczas scrollowania.
+- Dodatkowy `padding-bottom` w layoucie robi miejsce na pływający przycisk.
+- Dodatkowy `padding-top` w layoucie robi miejsce na stały topbar.
+- Lepiej mieć jeden element odpowiedzialny za wysokość ekranu niż kilka warstw z `min-h-screen`.
+- Jeśli `body` ma ciemne tło, a wewnętrzny kontener nie przykrywa całej wysokości, zobaczymy ciemny obszar pod treścią.
+- `onSubmit` + `FormData` to prosty sposób na odczyt danych z formularza bez backendu.
+- `pathname.startsWith(...)` pomaga oznaczyć aktywne menu także dla podstron, np. `/appointments/new`.
+- Provider w `layout.tsx` pozwala zachować stan między przejściami po aplikacji, dopóki nie odświeżysz strony.
+- `localStorage` pozwala zachować fake dane po odświeżeniu strony bez użycia backendu.
+- Kategorie typu `service` i `addon` pomagają przygotować strukturę danych pod późniejsze rozszerzenia.
+- Warstwa `lib/data` porządkuje kod: strony renderują UI, a osobne funkcje rozmawiają z bazą.
+- W Next 16 dawne `middleware` zostało przemianowane na `proxy`.
+- Jeśli wizyta ma trzymać cenę z momentu rezerwacji, warto zapisać ją bezpośrednio w tabeli `appointments`, a nie liczyć zawsze z aktualnej ceny usługi.
+- Jeśli nazwa klientki albo usługi może zmienić się w przyszłości, warto zapisać ich snapshot także w `appointments`, żeby historia wizyt nie zmieniała się wstecz.
+- Relacja `client_id` w `appointments` jest lepsza niż zwykły tekst z imieniem klientki, bo pozwala później rozwijać historię klientki bez przepisywania danych ręcznie.
+- Kategorie `service` i `addon` mogą żyć w jednej tabeli, jeśli mają te same pola, np. nazwę i cenę.
+- `app/manifest.ts` pozwala ustawić nazwę, ikony i tryb `standalone`, dzięki czemu strona może działać jak web app po dodaniu do ekranu głównego.
+- `appleWebApp` w metadata Next.js dodaje ustawienia potrzebne pod iPhone, np. tytuł i styl status bara.
+- `icon.tsx` i `apple-icon.tsx` mogą generować ikonę aplikacji kodem, bez ręcznego trzymania plików PNG.
+- Jeśli ekran potrzebuje tylko części danych, lepiej zrobić lżejszy query helper niż pobierać cały rekord z każdą kolumną.
+- `Suspense` pozwala pokazać szkielet strony od razu, zamiast trzymać użytkownika na pustym ekranie do końca ładowania danych.
+- Checkboxy z tą samą nazwą w formularzu mogą wysłać wiele wartości przez `FormData.getAll(...)`, co dobrze pasuje do listy dodatków.
+
+## Mistakes or bugs encountered
+- Przycisk menu nie otwierał panelu poprawnie w pierwszej wersji. Zmieniłem implementację na prosty CSSowy checkbox i linki, żeby menu działało nawet bez problemów z JavaScriptem.
+- Przy kliknięciu linku menu mogło zostać wizualnie otwarte. Dodałem zamknięcie checkboxa po przejściu do nowej strony.
+- Ręczne wpisywanie wielu podobnych kart szybko robi bałagan. Lepiej trzymać dane w tablicy i generować UI automatycznie.
+- Przycisk przyklejony do dołu może zasłaniać ostatnią kartę, jeśli nie zostawimy dolnego odstępu w layoucie.
+- Stały pasek u góry może zakrywać początek strony, jeśli nie dodamy miejsca nad treścią.
+- Jeśli strona i layout jednocześnie próbują mieć wysokość całego ekranu, na końcu może pojawić się pusty obszar.
+- Globalny tryb dark w CSS może gryźć się z jasnym layoutem, jeśli projekt ma działać tylko w jednej jasnej wersji.
+- Po dodaniu nowej podstrony topbar może stracić poprawny tytuł, jeśli logika działa tylko dla ścieżek 1:1.
+- Jeśli stan formularza żyje tylko na jednej stronie, po przejściu na inną trasę zniknie. Wspólny provider rozwiązuje ten problem.
+- Jeśli cennik i formularz mają osobne, ręczne listy, wcześniej czy później zaczną się różnić.
+- Pamięć przeglądarki jest wygodna na chwilę, ale do normalnego testowania przepływów lepsza jest prawdziwa baza danych.
+- Gdy używamy publishable key zamiast secret key, trzeba dobrze ustawić RLS policies w Supabase.
+- Jeśli dziś wiemy, że dodatki będą częścią wizyty później, można przygotować tabelę relacyjną wcześniej i nie zmieniać potem całego modelu.
+
+## Questions to review
+- Jakie pliki tworzą nowe trasy w Next.js App Router?
+- Dlaczego używamy komponentu `TopBar` w `layout.tsx`?
+- Co robi `peer-checked:translate-x-0` w Tailwind?
+- Jak działa menu otwierane przez `label` i `input type="checkbox"`?
+- Dlaczego tablica linków i `.map()` są wygodniejsze niż ręczne pisanie pięciu `Link`?
+- Po co React potrzebuje `key` przy renderowaniu listy?
+- Dlaczego pływający przycisk lepiej dodać globalnie w `layout.tsx`, a nie osobno na każdej stronie?
+- Dlaczego po ustawieniu `TopBar` jako `fixed` trzeba zmienić też `layout.tsx`?
+- Dlaczego `min-h-screen` w każdej stronie przestało być potrzebne po przeniesieniu układu do `layout.tsx`?
+- Dlaczego czasem problem z układem wygląda jak błąd wysokości, a naprawdę jest problemem tła?
+- Dlaczego dla `/appointments/new` użyliśmy osobnej strony, a nie osobnego komponentu w `appointments/page.tsx`?
+- Dlaczego provider w `layout.tsx` utrzymuje dane między `/appointments/new` i `/appointments`, ale znika po odświeżeniu strony?
+- Dlaczego formularz wizyty powinien czytać usługi z jednego wspólnego cennika zamiast z własnej tablicy?
+- Dlaczego przy Supabase SSR potrzebujemy `proxy.ts`, skoro strona i tak działa bez logowania?
