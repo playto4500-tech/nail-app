@@ -31,7 +31,7 @@ export async function createAppointmentAction(formData: FormData) {
     .getAll("addonIds")
     .map((value) => Number(value))
     .filter((value, index, values) => Number.isFinite(value) && value > 0 && values.indexOf(value) === index);
-  const status = String(formData.get("status") ?? "scheduled") as AppointmentStatus;
+  const status = String(formData.get("status") ?? "confirmed") as AppointmentStatus;
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!date || !time || !serviceId) {

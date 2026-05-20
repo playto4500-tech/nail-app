@@ -242,7 +242,7 @@ export default function NewAppointmentForm({ clients, services }: Props) {
         <span className="text-sm font-medium text-slate-700">Status</span>
         <select
           name="status"
-          defaultValue="scheduled"
+          defaultValue="confirmed"
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
         >
           <option value="confirmed">Potwierdzona</option>

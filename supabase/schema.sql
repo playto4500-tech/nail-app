@@ -25,7 +25,7 @@ create table if not exists public.appointments (
   appointment_date date not null,
   appointment_time time not null,
   appointment_price integer not null check (appointment_price > 0),
-  status text not null default 'scheduled' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
+  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
   notes text,
   created_at timestamptz not null default now()
 );
