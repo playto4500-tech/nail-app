@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   cancelAppointmentAction,
+  completeAppointmentAction,
   deleteAppointmentAction,
   updateAppointmentAction,
 } from "../app/actions/appointments";
@@ -27,6 +28,8 @@ type EditFormState = {
   status: "confirmed" | "scheduled";
   notes: string;
 };
+
+type AppointmentStatus = Appointment["status"];
 
 function formatAppointmentDate(date: string) {
   return new Intl.DateTimeFormat("pl-PL", {
@@ -53,7 +56,7 @@ function getAppointmentTotal(price: number, addons: Array<{ price: number }>) {
   return price + addons.reduce((total, addon) => total + addon.price, 0);
 }
 
-function getStatusLabel(status: "confirmed" | "cancelled" | "scheduled") {
+function getStatusLabel(status: AppointmentStatus) {
   if (status === "confirmed") {
     return "Potwierdzona";
   }
@@ -62,16 +65,24 @@ function getStatusLabel(status: "confirmed" | "cancelled" | "scheduled") {
     return "Anulowana";
   }
 
+  if (status === "completed") {
+    return "Zakończona";
+  }
+
   return "Zaplanowana";
 }
 
-function getStatusClasses(status: "confirmed" | "cancelled" | "scheduled") {
+function getStatusClasses(status: AppointmentStatus) {
   if (status === "confirmed") {
     return "bg-emerald-100 text-emerald-700";
   }
 
   if (status === "cancelled") {
     return "bg-rose-100 text-rose-700";
+  }
+
+  if (status === "completed") {
+    return "bg-slate-900 text-white";
   }
 
   return "bg-amber-100 text-amber-700";
@@ -106,6 +117,7 @@ export default function AppointmentsExperience({
   const router = useRouter();
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<null | number>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [editState, setEditState] = useState<null | EditFormState>(null);
   const [showPastVisits, setShowPastVisits] = useState(false);
@@ -125,27 +137,21 @@ export default function AppointmentsExperience({
     [services],
   );
 
-  const selectedService = useMemo(
-    () =>
-      serviceOptions.find((service) => String(service.id) === editState?.serviceId) ?? null,
-    [editState?.serviceId, serviceOptions],
-  );
-  const selectedAddons = useMemo(
-    () =>
-      addonOptions.filter((addon) => editState?.addonIds.includes(String(addon.id))),
-    [addonOptions, editState?.addonIds],
-  );
-
-  const editTotal = selectedService
-    ? selectedService.price +
-      selectedAddons.reduce((total, addon) => total + addon.price, 0)
+  const selectedAppointmentSuggestedPrice = selectedAppointment
+    ? getAppointmentTotal(selectedAppointment.price, selectedAppointment.addons)
     : 0;
 
   const todayDateKey = useMemo(() => getTodayDateKey(), []);
 
   const groupedAppointments = useMemo(() => {
-    const upcoming = appointments.filter((appointment) => appointment.date >= todayDateKey);
-    const past = appointments.filter((appointment) => appointment.date < todayDateKey);
+    const upcoming = appointments.filter(
+      (appointment) =>
+        appointment.status !== "completed" && appointment.date >= todayDateKey,
+    );
+    const past = appointments.filter(
+      (appointment) =>
+        appointment.status === "completed" || appointment.date < todayDateKey,
+    );
 
     function groupByDate(items: Appointment[]) {
       const groups = new Map<string, Appointment[]>();
@@ -194,6 +200,7 @@ export default function AppointmentsExperience({
         setSelectedAppointmentId(null);
         setEditState(null);
         setIsEditing(false);
+        setIsCompleting(false);
       }
     };
 
@@ -209,6 +216,7 @@ export default function AppointmentsExperience({
     setSelectedAppointmentId(null);
     setEditState(null);
     setIsEditing(false);
+    setIsCompleting(false);
   }
 
   function closeModal() {
@@ -226,6 +234,7 @@ export default function AppointmentsExperience({
 
     setEditState(createInitialEditState(selectedAppointment));
     setIsEditing(true);
+    setIsCompleting(false);
   }
 
   function closeEditMode() {
@@ -235,6 +244,24 @@ export default function AppointmentsExperience({
 
     setEditState(createInitialEditState(selectedAppointment));
     setIsEditing(false);
+  }
+
+  function openCompleteMode() {
+    if (
+      !selectedAppointment ||
+      selectedAppointment.status === "cancelled" ||
+      selectedAppointment.status === "completed"
+    ) {
+      return;
+    }
+
+    setEditState(null);
+    setIsEditing(false);
+    setIsCompleting(true);
+  }
+
+  function closeCompleteMode() {
+    setIsCompleting(false);
   }
 
   function handleAddonToggle(addonId: string, checked: boolean) {
@@ -263,6 +290,21 @@ export default function AppointmentsExperience({
       await updateAppointmentAction(formData);
       router.refresh();
       resetModalState();
+    });
+  }
+
+  async function submitComplete(formData: FormData) {
+    if (!selectedAppointment) {
+      return;
+    }
+
+    formData.set("appointmentId", String(selectedAppointment.id));
+
+    startTransition(async () => {
+      await completeAppointmentAction(formData);
+      router.refresh();
+      resetModalState();
+      setShowPastVisits(true);
     });
   }
 
@@ -337,12 +379,14 @@ export default function AppointmentsExperience({
             Usługa:{" "}
             <span className="font-medium text-slate-900">{appointment.serviceName}</span>
           </p>
-          <p>
-            Cena:{" "}
-            <span className="font-medium text-slate-900">
-              {formatPrice(getAppointmentTotal(appointment.price, appointment.addons))}
-            </span>
-          </p>
+          {appointment.status === "completed" ? (
+            <p>
+              Otrzymano:{" "}
+              <span className="font-medium text-slate-900">
+                {formatPrice(appointment.price)}
+              </span>
+            </p>
+          ) : null}
           <p>
             Status klientki:{" "}
             <span className="font-medium text-slate-900">
@@ -390,7 +434,7 @@ export default function AppointmentsExperience({
               <div>
                 <p className="text-sm font-semibold text-slate-900">Poprzednie wizyty</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {groupedAppointments.pastCount} zapisanych wizyt z wcześniejszych dni
+                  {groupedAppointments.pastCount} zakończonych albo wcześniejszych wizyt
                 </p>
               </div>
               <span className="text-sm font-semibold text-slate-600">
@@ -562,9 +606,6 @@ export default function AppointmentsExperience({
                                 {addon.name}
                               </span>
                             </span>
-                            <span className="shrink-0 text-sm text-slate-500">
-                              +{formatPrice(addon.price)}
-                            </span>
                           </label>
                         );
                       })}
@@ -610,10 +651,6 @@ export default function AppointmentsExperience({
                   />
                 </label>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900">
-                  Suma: {selectedService ? formatPrice(editTotal) : "Wybierz usługę"}
-                </div>
-
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
                     type="button"
@@ -629,6 +666,66 @@ export default function AppointmentsExperience({
                     className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
                   >
                     {isPending ? "Zapisywanie..." : "Zapisz zmiany"}
+                  </button>
+                </div>
+              </form>
+            ) : isCompleting ? (
+              <form action={submitComplete} className="mt-6 space-y-4">
+                <div className="rounded-[24px] bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                    Sugerowana kwota
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">
+                    {formatPrice(selectedAppointmentSuggestedPrice)}
+                  </p>
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-700">
+                    Ile klientka zapłaciła?
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      name="price"
+                      type="number"
+                      min="1"
+                      step="1"
+                      required
+                      defaultValue={selectedAppointmentSuggestedPrice}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                    />
+                    <span className="shrink-0 text-sm font-semibold text-slate-500">PLN</span>
+                  </div>
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-700">
+                    Uwagi po wizycie
+                  </span>
+                  <textarea
+                    name="notes"
+                    rows={4}
+                    defaultValue={selectedAppointment.notes}
+                    placeholder="(opcjonalne)"
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                </label>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeCompleteMode}
+                    disabled={isPending}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Wróć
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+                  >
+                    {isPending ? "Zapisywanie..." : "Zakończ"}
                   </button>
                 </div>
               </form>
@@ -685,22 +782,21 @@ export default function AppointmentsExperience({
                       </p>
                       <p className="mt-2 font-medium text-slate-900">
                         {selectedAppointment.addons
-                          .map((addon) => `${addon.name} (+${formatPrice(addon.price)})`)
+                          .map((addon) => addon.name)
                           .join(", ")}
                       </p>
                     </div>
                   ) : null}
-                  <div className="col-span-2">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Cena</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">
-                      {formatPrice(
-                        getAppointmentTotal(
-                          selectedAppointment.price,
-                          selectedAppointment.addons,
-                        ),
-                      )}
-                    </p>
-                  </div>
+                  {selectedAppointment.status === "completed" ? (
+                    <div className="col-span-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Otrzymano
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-slate-900">
+                        {formatPrice(selectedAppointment.price)}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
 
                 {selectedAppointment.notes ? (
@@ -712,23 +808,37 @@ export default function AppointmentsExperience({
                   </div>
                 ) : null}
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={openEditMode}
-                    disabled={isPending}
-                    className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
-                  >
-                    Edytuj
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelAppointment}
-                    disabled={isPending || selectedAppointment.status === "cancelled"}
-                    className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
-                  >
-                    Anuluj
-                  </button>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {selectedAppointment.status === "completed" ? null : (
+                    <>
+                      {selectedAppointment.status === "cancelled" ? null : (
+                        <button
+                          type="button"
+                          onClick={openCompleteMode}
+                          disabled={isPending}
+                          className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+                        >
+                          Zakończ
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={openEditMode}
+                        disabled={isPending}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        Edytuj
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelAppointment}
+                        disabled={isPending || selectedAppointment.status === "cancelled"}
+                        className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        Anuluj
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={handleDeleteAppointment}

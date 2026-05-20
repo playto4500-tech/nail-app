@@ -1,7 +1,7 @@
 import { createClient } from "../../utils/supabase/server";
 import type { ClientStatus } from "./clients";
 
-export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled";
+export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled" | "completed";
 
 export type Appointment = {
   id: number;
@@ -200,6 +200,26 @@ export async function updateAppointmentStatus(input: {
 
   if (error) {
     throw new Error(`Failed to update appointment status: ${error.message}`);
+  }
+}
+
+export async function completeAppointment(input: {
+  appointmentId: number;
+  price: number;
+  notes: string;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      appointment_price: input.price,
+      status: "completed",
+      notes: input.notes || null,
+    })
+    .eq("id", input.appointmentId);
+
+  if (error) {
+    throw new Error(`Failed to complete appointment: ${error.message}`);
   }
 }
 

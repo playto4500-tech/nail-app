@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
+  completeAppointment,
   createAppointment,
   createAppointmentAddons,
   deleteAppointmentAddons,
@@ -177,6 +178,24 @@ export async function cancelAppointmentAction(formData: FormData) {
   await updateAppointmentStatus({
     appointmentId,
     status: "cancelled",
+  });
+
+  revalidatePath("/appointments");
+}
+
+export async function completeAppointmentAction(formData: FormData) {
+  const appointmentId = Number(formData.get("appointmentId") ?? 0);
+  const price = Number(formData.get("price") ?? 0);
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!appointmentId || !Number.isFinite(price) || !Number.isInteger(price) || price <= 0) {
+    return;
+  }
+
+  await completeAppointment({
+    appointmentId,
+    price,
+    notes,
   });
 
   revalidatePath("/appointments");

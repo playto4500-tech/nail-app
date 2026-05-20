@@ -10,7 +10,7 @@ with check (
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
-  and status in ('confirmed', 'cancelled', 'scheduled')
+  and status in ('confirmed', 'cancelled', 'scheduled', 'completed')
 );
 
 drop policy if exists "Anyone can delete appointments" on public.appointments;

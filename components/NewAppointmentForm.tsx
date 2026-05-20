@@ -11,38 +11,20 @@ type Props = {
   services: ServiceItem[];
 };
 
-function formatPrice(price: number) {
-  return `${price} zł`;
-}
-
 export default function NewAppointmentForm({ clients, services }: Props) {
   const serviceOptions = services.filter((service) => service.category === "service");
   const addonOptions = services.filter((service) => service.category === "addon");
   const [isNewClient, setIsNewClient] = useState(clients.length === 0);
   const [includeAddons, setIncludeAddons] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [selectedClientId, setSelectedClientId] = useState(
     clients[0] ? String(clients[0].id) : "",
   );
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
 
-  const selectedService = useMemo(
-    () => serviceOptions.find((service) => String(service.id) === selectedServiceId),
-    [serviceOptions, selectedServiceId],
-  );
-
   const selectedClient = useMemo(
     () => clients.find((client) => String(client.id) === selectedClientId),
     [clients, selectedClientId],
   );
-
-  const selectedAddons = useMemo(
-    () =>
-      addonOptions.filter((addon) => selectedAddonIds.includes(String(addon.id))),
-    [addonOptions, selectedAddonIds],
-  );
-
-  const addonsPrice = selectedAddons.reduce((total, addon) => total + addon.price, 0);
 
   function handleAddonToggle(addonId: string, checked: boolean) {
     setSelectedAddonIds((current) => {
@@ -184,7 +166,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
           required
           defaultValue=""
           disabled={serviceOptions.length === 0}
-          onChange={(event) => setSelectedServiceId(event.target.value)}
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
         >
           <option value="" disabled>
@@ -198,13 +179,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
             </option>
           ))}
         </select>
-      </label>
-
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-slate-700">Cena z usługi</span>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900">
-          {selectedService ? formatPrice(selectedService.price) : "Wybierz usługę"}
-        </div>
       </label>
 
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
@@ -252,9 +226,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
                         {addon.name}
                       </span>
                     </span>
-                    <span className="shrink-0 text-sm text-slate-500">
-                      +{formatPrice(addon.price)}
-                    </span>
                   </label>
                 );
               })}
@@ -266,15 +237,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
           )
         ) : null}
       </section>
-
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-slate-700">Suma</span>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900">
-          {selectedService
-            ? formatPrice(selectedService.price + addonsPrice)
-            : "Wybierz usługę"}
-        </div>
-      </label>
 
       <label className="block space-y-2">
         <span className="text-sm font-medium text-slate-700">Status</span>

@@ -25,7 +25,7 @@ create table if not exists public.appointments (
   appointment_date date not null,
   appointment_time time not null,
   appointment_price integer not null check (appointment_price > 0),
-  status text not null default 'scheduled' check (status in ('confirmed', 'cancelled', 'scheduled')),
+  status text not null default 'scheduled' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
   notes text,
   created_at timestamptz not null default now()
 );
@@ -47,11 +47,21 @@ create table if not exists public.inventory_items (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.expenses (
+  id bigint generated always as identity primary key,
+  name text not null,
+  amount integer not null check (amount > 0),
+  source text not null,
+  expense_date date not null default current_date,
+  created_at timestamptz not null default now()
+);
+
 alter table public.clients enable row level security;
 alter table public.services enable row level security;
 alter table public.appointments enable row level security;
 alter table public.appointment_addons enable row level security;
 alter table public.inventory_items enable row level security;
+alter table public.expenses enable row level security;
 
 drop policy if exists "Anyone can read clients" on public.clients;
 create policy "Anyone can read clients"
@@ -107,7 +117,7 @@ with check (
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
-  and status in ('confirmed', 'cancelled', 'scheduled')
+  and status in ('confirmed', 'cancelled', 'scheduled', 'completed')
 );
 
 drop policy if exists "Anyone can update appointments" on public.appointments;
@@ -122,7 +132,7 @@ with check (
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
-  and status in ('confirmed', 'cancelled', 'scheduled')
+  and status in ('confirmed', 'cancelled', 'scheduled', 'completed')
 );
 
 drop policy if exists "Anyone can delete appointments" on public.appointments;
@@ -166,6 +176,24 @@ on public.inventory_items
 for insert
 to anon, authenticated
 with check (char_length(name) > 0 and quantity >= 0);
+
+drop policy if exists "Anyone can read expenses" on public.expenses;
+create policy "Anyone can read expenses"
+on public.expenses
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Anyone can insert expenses" on public.expenses;
+create policy "Anyone can insert expenses"
+on public.expenses
+for insert
+to anon, authenticated
+with check (
+  char_length(name) > 0
+  and amount > 0
+  and char_length(source) > 0
+);
 
 insert into public.services (category, name, price)
 values
