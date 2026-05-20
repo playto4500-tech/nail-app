@@ -30,6 +30,10 @@ type EditFormState = {
 };
 
 type AppointmentStatus = Appointment["status"];
+type ToastState = null | {
+  message: string;
+  tone: "success" | "error";
+};
 
 function formatAppointmentDate(date: string) {
   return new Intl.DateTimeFormat("pl-PL", {
@@ -90,7 +94,7 @@ function getStatusClasses(status: AppointmentStatus) {
 
 function createInitialEditState(appointment: Appointment): EditFormState {
   return {
-    clientId: String(appointment.clientId),
+    clientId: appointment.clientId ? String(appointment.clientId) : "",
     date: appointment.date,
     time: appointment.time,
     serviceId: String(appointment.serviceId),
@@ -121,6 +125,10 @@ export default function AppointmentsExperience({
   const [isPending, startTransition] = useTransition();
   const [editState, setEditState] = useState<null | EditFormState>(null);
   const [showPastVisits, setShowPastVisits] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [completedAppointmentPrices, setCompletedAppointmentPrices] = useState<
+    Record<number, number>
+  >({});
 
   const selectedAppointment = useMemo(
     () =>
@@ -144,13 +152,18 @@ export default function AppointmentsExperience({
   const todayDateKey = useMemo(() => getTodayDateKey(), []);
 
   const groupedAppointments = useMemo(() => {
+    function isCompleted(appointment: Appointment) {
+      return (
+        appointment.status === "completed" ||
+        completedAppointmentPrices[appointment.id] !== undefined
+      );
+    }
+
     const upcoming = appointments.filter(
-      (appointment) =>
-        appointment.status !== "completed" && appointment.date >= todayDateKey,
+      (appointment) => !isCompleted(appointment) && appointment.date >= todayDateKey,
     );
     const past = appointments.filter(
-      (appointment) =>
-        appointment.status === "completed" || appointment.date < todayDateKey,
+      (appointment) => isCompleted(appointment) || appointment.date < todayDateKey,
     );
 
     function groupByDate(items: Appointment[]) {
@@ -175,7 +188,7 @@ export default function AppointmentsExperience({
       upcomingCount: upcoming.length,
       pastCount: past.length,
     };
-  }, [appointments, todayDateKey]);
+  }, [appointments, completedAppointmentPrices, todayDateKey]);
 
   useEffect(() => {
     if (!selectedAppointment) {
@@ -189,6 +202,18 @@ export default function AppointmentsExperience({
       document.body.style.overflow = "";
     };
   }, [selectedAppointment]);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 3500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   useEffect(() => {
     if (!selectedAppointment) {
@@ -260,6 +285,13 @@ export default function AppointmentsExperience({
     setIsCompleting(true);
   }
 
+  function openCompleteModeForAppointment(appointmentId: number) {
+    setSelectedAppointmentId(appointmentId);
+    setEditState(null);
+    setIsEditing(false);
+    setIsCompleting(true);
+  }
+
   function closeCompleteMode() {
     setIsCompleting(false);
   }
@@ -299,12 +331,32 @@ export default function AppointmentsExperience({
     }
 
     formData.set("appointmentId", String(selectedAppointment.id));
+    const completedAppointmentId = selectedAppointment.id;
+    const completedPrice = Number(formData.get("price") ?? 0);
 
     startTransition(async () => {
-      await completeAppointmentAction(formData);
-      router.refresh();
+      const result = await completeAppointmentAction(formData);
+
+      if (!result.ok) {
+        setToast({
+          message:
+            "Nie udało się zakończyć wizyty. Sprawdź, czy SQL 005 został odpalony w Supabase.",
+          tone: "error",
+        });
+        return;
+      }
+
+      setCompletedAppointmentPrices((current) => ({
+        ...current,
+        [completedAppointmentId]: completedPrice,
+      }));
       resetModalState();
       setShowPastVisits(true);
+      setToast({
+        message: "Zakończono wizytę",
+        tone: "success",
+      });
+      router.refresh();
     });
   }
 
@@ -347,59 +399,108 @@ export default function AppointmentsExperience({
   }
 
   function renderAppointmentCard(appointment: Appointment) {
+    const completedPrice = completedAppointmentPrices[appointment.id];
+    const displayStatus: AppointmentStatus =
+      completedPrice !== undefined ? "completed" : appointment.status;
+    const canComplete =
+      displayStatus !== "cancelled" && displayStatus !== "completed";
+
     return (
-      <button
+      <article
         key={appointment.id}
-        type="button"
-        onClick={() => openModal(appointment.id)}
-        className="block w-full rounded-[24px] bg-white p-5 text-left shadow-sm shadow-slate-200 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+        className="relative rounded-[24px] bg-white shadow-sm shadow-slate-200"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm text-slate-500">{appointment.time}</p>
-            <p className="mt-2 text-lg font-semibold text-slate-900">
-              {appointment.clientName}
-            </p>
-            {appointment.clientInstagramHandle ? (
-              <p className="mt-1 text-sm text-slate-500">
-                {appointment.clientInstagramHandle}
+        <button
+          type="button"
+          onClick={() => openModal(appointment.id)}
+          className={`block w-full rounded-[24px] p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${
+            canComplete ? "pb-16" : ""
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-slate-500">{appointment.time}</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">
+                {appointment.clientName}
               </p>
-            ) : null}
+              {appointment.clientInstagramHandle ? (
+                <p className="mt-1 text-sm text-slate-500">
+                  {appointment.clientInstagramHandle}
+                </p>
+              ) : null}
+            </div>
+
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(displayStatus)}`}
+            >
+              {getStatusLabel(displayStatus)}
+            </span>
           </div>
 
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(appointment.status)}`}
-          >
-            {getStatusLabel(appointment.status)}
-          </span>
-        </div>
-
-        <div className="mt-4 space-y-2 text-sm text-slate-600">
-          <p>
-            Usługa:{" "}
-            <span className="font-medium text-slate-900">{appointment.serviceName}</span>
-          </p>
-          {appointment.status === "completed" ? (
+          <div className="mt-4 space-y-2 text-sm text-slate-600">
             <p>
-              Otrzymano:{" "}
+              Usługa:{" "}
+              <span className="font-medium text-slate-900">{appointment.serviceName}</span>
+            </p>
+            {displayStatus === "completed" ? (
+              <p>
+                Otrzymano:{" "}
+                <span className="font-medium text-slate-900">
+                  {formatPrice(completedPrice ?? appointment.price)}
+                </span>
+              </p>
+            ) : null}
+            <p>
+              Status klientki:{" "}
               <span className="font-medium text-slate-900">
-                {formatPrice(appointment.price)}
+                {appointment.clientStatus === "regular" ? "Stała klientka" : "Nowa klientka"}
               </span>
             </p>
-          ) : null}
-          <p>
-            Status klientki:{" "}
-            <span className="font-medium text-slate-900">
-              {appointment.clientStatus === "regular" ? "Stała klientka" : "Nowa klientka"}
-            </span>
-          </p>
-        </div>
-      </button>
+          </div>
+        </button>
+
+        {canComplete ? (
+          <button
+            type="button"
+            onClick={() => openCompleteModeForAppointment(appointment.id)}
+            className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-[14px] border border-emerald-200 bg-white text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            aria-label={`Zakończ wizytę: ${appointment.clientName}`}
+            title="Zakończ wizytę"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-[18px] w-[18px]"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.4"
+            >
+              <path d="m5 12 4 4L19 6" />
+            </svg>
+          </button>
+        ) : null}
+      </article>
     );
   }
 
   return (
     <>
+      {toast ? (
+        <div className="fixed left-1/2 top-[4.75rem] z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
+          <div
+            className={`rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg ${
+              toast.tone === "success"
+                ? "bg-emerald-100 text-emerald-800 shadow-emerald-100"
+                : "bg-rose-100 text-rose-800 shadow-rose-100"
+            }`}
+          >
+            {toast.message}
+          </div>
+        </div>
+      ) : null}
+
       <section className="space-y-4">
         <div className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
           <p className="text-sm text-slate-500">Nadchodzące wizyty</p>
@@ -486,6 +587,7 @@ export default function AppointmentsExperience({
                   <span className="text-sm font-medium text-slate-700">Klientka</span>
                   <select
                     name="clientId"
+                    required
                     value={editState.clientId}
                     onChange={(event) =>
                       setEditState((current) =>
@@ -494,6 +596,11 @@ export default function AppointmentsExperience({
                     }
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                   >
+                    {editState.clientId ? null : (
+                      <option value="" disabled>
+                        Wybierz klientkę
+                      </option>
+                    )}
                     {clients.map((client) => (
                       <option key={client.id} value={client.id}>
                         {client.name}

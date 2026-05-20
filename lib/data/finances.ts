@@ -216,3 +216,12 @@ export async function createExpense(input: {
     throw new Error(`Failed to create expense: ${error.message}`);
   }
 }
+
+export async function deleteExpense(id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("expenses").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to delete expense: ${error.message}`);
+  }
+}

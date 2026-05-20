@@ -189,16 +189,35 @@ export async function completeAppointmentAction(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!appointmentId || !Number.isFinite(price) || !Number.isInteger(price) || price <= 0) {
-    return;
+    return {
+      error: "Wpisz poprawną kwotę za wizytę.",
+      ok: false,
+    };
   }
 
-  await completeAppointment({
-    appointmentId,
-    price,
-    notes,
-  });
+  try {
+    await completeAppointment({
+      appointmentId,
+      price,
+      notes,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Nie udało się zakończyć wizyty.";
+
+    return {
+      error: message,
+      ok: false,
+    };
+  }
 
   revalidatePath("/appointments");
+
+  return {
+    ok: true,
+  };
 }
 
 export async function deleteAppointmentAction(formData: FormData) {

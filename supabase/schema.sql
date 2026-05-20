@@ -17,7 +17,7 @@ create table if not exists public.services (
 
 create table if not exists public.appointments (
   id bigint generated always as identity primary key,
-  client_id bigint not null references public.clients (id) on delete restrict,
+  client_id bigint references public.clients (id) on delete set null,
   service_id bigint not null references public.services (id) on delete restrict,
   client_name text not null,
   client_instagram_handle text,
@@ -77,6 +77,21 @@ for insert
 to anon, authenticated
 with check (char_length(name) > 0 and status in ('regular', 'new'));
 
+drop policy if exists "Anyone can update clients" on public.clients;
+create policy "Anyone can update clients"
+on public.clients
+for update
+to anon, authenticated
+using (true)
+with check (char_length(name) > 0 and status in ('regular', 'new'));
+
+drop policy if exists "Anyone can delete clients" on public.clients;
+create policy "Anyone can delete clients"
+on public.clients
+for delete
+to anon, authenticated
+using (true);
+
 drop policy if exists "Anyone can read services" on public.services;
 create policy "Anyone can read services"
 on public.services
@@ -113,7 +128,8 @@ for insert
 to anon, authenticated
 with check (
   client_id is not null
-  and service_id is not null
+  and
+  service_id is not null
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
@@ -127,8 +143,7 @@ for update
 to anon, authenticated
 using (true)
 with check (
-  client_id is not null
-  and service_id is not null
+  service_id is not null
   and char_length(client_name) > 0
   and char_length(service_name) > 0
   and appointment_price > 0
@@ -194,6 +209,13 @@ with check (
   and amount > 0
   and char_length(source) > 0
 );
+
+drop policy if exists "Anyone can delete expenses" on public.expenses;
+create policy "Anyone can delete expenses"
+on public.expenses
+for delete
+to anon, authenticated
+using (true);
 
 insert into public.services (category, name, price)
 values

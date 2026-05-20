@@ -1,11 +1,12 @@
 import { createClient } from "../../utils/supabase/server";
 import type { ClientStatus } from "./clients";
+import { normalizeKnownServiceName } from "./services";
 
 export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled" | "completed";
 
 export type Appointment = {
   id: number;
-  clientId: number;
+  clientId: null | number;
   clientName: string;
   clientInstagramHandle: null | string;
   clientStatus: "regular" | "new";
@@ -26,7 +27,7 @@ export type Appointment = {
 
 type AppointmentRow = {
   id: number;
-  client_id: number;
+  client_id: null | number;
   client_name: string;
   client_instagram_handle: null | string;
   appointment_date: string;
@@ -90,7 +91,9 @@ export async function getAppointments() {
 
       return {
         serviceId: addon.service_id,
-        name: relatedService?.name ?? "Dodatek",
+        name: relatedService?.name
+          ? normalizeKnownServiceName(relatedService.name)
+          : "Dodatek",
         price: addon.addon_price,
       };
     });
@@ -104,7 +107,9 @@ export async function getAppointments() {
       date: appointment.appointment_date,
       time: appointment.appointment_time,
       serviceId: appointment.service_id,
-      serviceName: appointment.service_name || "Nieznana usługa",
+      serviceName: appointment.service_name
+        ? normalizeKnownServiceName(appointment.service_name)
+        : "Nieznana usługa",
       price: appointment.appointment_price,
       status: appointment.status,
       notes: appointment.notes ?? "",

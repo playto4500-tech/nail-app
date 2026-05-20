@@ -1,5 +1,6 @@
 import { createClientAction } from "../actions/clients";
-import { getClients } from "../../lib/data/clients";
+import ClientsExperience from "../../components/ClientsExperience";
+import { getClients, getClientVisitHistories } from "../../lib/data/clients";
 import { isSupabaseConfigured } from "../../lib/supabase/env";
 
 export default async function ClientsPage() {
@@ -24,7 +25,10 @@ export default async function ClientsPage() {
     );
   }
 
-  const clients = await getClients();
+  const [clients, visitsByClient] = await Promise.all([
+    getClients(),
+    getClientVisitHistories(),
+  ]);
 
   return (
     <div className="bg-slate-50 px-5 py-8 text-slate-900">
@@ -109,26 +113,7 @@ export default async function ClientsPage() {
             </button>
           </form>
 
-          {clients.map((client) => (
-            <article key={client.id} className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-slate-900">{client.name}</p>
-                  {client.instagramHandle ? (
-                    <p className="mt-1 text-sm text-slate-500">{client.instagramHandle}</p>
-                  ) : (
-                    <p className="mt-1 text-sm text-slate-400">Brak Instagram handle</p>
-                  )}
-                </div>
-
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                  {client.status === "regular" ? "Stała klientka" : "Nowa klientka"}
-                </span>
-              </div>
-
-              {client.notes ? <p className="mt-4 text-sm text-slate-600">{client.notes}</p> : null}
-            </article>
-          ))}
+          <ClientsExperience clients={clients} visitsByClient={visitsByClient} />
         </section>
       </main>
     </div>
