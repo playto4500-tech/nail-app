@@ -43,11 +43,11 @@ function getTodayDateKey(now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function isUpcomingAppointment(appointment: Appointment, todayDateKey: string, nowTime: string) {
-  if (appointment.status !== "confirmed" && appointment.status !== "scheduled") {
-    return false;
-  }
-
+function isFutureOrCurrentAppointment(
+  appointment: Appointment,
+  todayDateKey: string,
+  nowTime: string,
+) {
   if (appointment.date < todayDateKey) {
     return false;
   }
@@ -57,6 +57,18 @@ function isUpcomingAppointment(appointment: Appointment, todayDateKey: string, n
   }
 
   return true;
+}
+
+function shouldPublishEvent(appointment: Appointment, todayDateKey: string, nowTime: string) {
+  if (!isFutureOrCurrentAppointment(appointment, todayDateKey, nowTime)) {
+    return false;
+  }
+
+  if (appointment.deletedAt) {
+    return true;
+  }
+
+  return appointment.status === "confirmed" || appointment.status === "scheduled";
 }
 
 function buildEventDescription(appointment: Appointment) {
@@ -103,7 +115,7 @@ export function buildCalendarFeed(appointments: Appointment[]) {
   const dtstamp = formatUtcStamp(now);
 
   const events = appointments
-    .filter((appointment) => isUpcomingAppointment(appointment, todayDateKey, nowTime))
+    .filter((appointment) => shouldPublishEvent(appointment, todayDateKey, nowTime))
     .sort((first, second) => {
       if (first.date === second.date) {
         return first.time.localeCompare(second.time);
@@ -114,6 +126,7 @@ export function buildCalendarFeed(appointments: Appointment[]) {
     .map((appointment) => {
       const start = formatDateTime(appointment.date, appointment.time);
       const end = formatDateTime(appointment.date, addHour(appointment.time));
+      const isCancelledEvent = appointment.deletedAt !== null || appointment.status === "cancelled";
 
       return [
         "BEGIN:VEVENT",
@@ -123,7 +136,8 @@ export function buildCalendarFeed(appointments: Appointment[]) {
         `DTEND;TZID=${timezone}:${end}`,
         `SUMMARY:${buildEventSummary(appointment)}`,
         `DESCRIPTION:${buildEventDescription(appointment)}`,
-        "STATUS:CONFIRMED",
+        `STATUS:${isCancelledEvent ? "CANCELLED" : "CONFIRMED"}`,
+        `SEQUENCE:${isCancelledEvent ? "1" : "0"}`,
         "END:VEVENT",
       ].join("\r\n");
     });

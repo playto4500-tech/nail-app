@@ -35,6 +35,10 @@ type Props = {
 };
 
 function getAppointmentCountBadgeClasses(count: number, isSelected: boolean) {
+  if (count === 0) {
+    return isSelected ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500";
+  }
+
   if (count >= 4) {
     return isSelected ? "bg-rose-500 text-white" : "bg-rose-100 text-rose-700";
   }
@@ -275,16 +279,14 @@ export default function PlannerExperience({ appointments, clients, services }: P
                                 : "border-slate-100 bg-white/70 text-slate-400 hover:bg-white"
                           }`}
                         >
-                          {dayAppointments.length > 0 ? (
-                            <span
-                              className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
-                                dayAppointments.length,
-                                isSelected,
-                              )}`}
-                            >
-                              {dayAppointments.length}
-                            </span>
-                          ) : null}
+                          <span
+                            className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                              dayAppointments.length,
+                              isSelected,
+                            )}`}
+                          >
+                            {dayAppointments.length}
+                          </span>
 
                           <div className="flex h-full items-end">
                             <span
@@ -318,16 +320,14 @@ export default function PlannerExperience({ appointments, clients, services }: P
                           : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
                       }`}
                     >
-                      {dayAppointments.length > 0 ? (
-                        <span
-                          className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
-                            dayAppointments.length,
-                            isSelected,
-                          )}`}
-                        >
-                          {dayAppointments.length}
-                        </span>
-                      ) : null}
+                      <span
+                        className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                          dayAppointments.length,
+                          isSelected,
+                        )}`}
+                      >
+                        {dayAppointments.length}
+                      </span>
                       <p className="text-[11px] font-medium uppercase tracking-[0.12em]">
                         {
                           weekdayLabels[
@@ -341,13 +341,6 @@ export default function PlannerExperience({ appointments, clients, services }: P
                         }`}
                       >
                         {day.dayNumber}
-                      </p>
-                      <p
-                        className={`mt-2 text-xs font-medium ${
-                          isSelected ? "text-white/80" : "text-slate-500"
-                        }`}
-                      >
-                        {dayAppointments.length > 0 ? "Zajęte" : "Wolne"}
                       </p>
                     </button>
                   );

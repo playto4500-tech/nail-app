@@ -29,6 +29,7 @@ create table if not exists public.appointments (
   appointment_tip integer check (appointment_tip is null or appointment_tip >= 0),
   status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
   notes text,
+  deleted_at timestamptz,
   created_at timestamptz not null default now()
 );
 

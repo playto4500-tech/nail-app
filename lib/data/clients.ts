@@ -47,6 +47,7 @@ type ClientVisitRow = {
   appointment_tip: null | number;
   status: ClientVisit["status"];
   notes: null | string;
+  deleted_at: null | string;
 };
 
 function getTodayDateKey() {
@@ -127,7 +128,7 @@ export async function getClientVisitHistories() {
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, client_id, appointment_date, appointment_time, service_name, appointment_price, appointment_tip, status, notes",
+      "id, client_id, appointment_date, appointment_time, service_name, appointment_price, appointment_tip, status, notes, deleted_at",
     )
     .order("appointment_date", { ascending: false })
     .order("appointment_time", { ascending: false });
@@ -138,6 +139,10 @@ export async function getClientVisitHistories() {
 
   return ((data ?? []) as ClientVisitRow[]).reduce<Record<number, ClientVisit[]>>(
     (visitsByClient, visit) => {
+      if (visit.deleted_at) {
+        return visitsByClient;
+      }
+
       const isPreviousVisit =
         visit.status === "completed" || visit.appointment_date < todayKey;
 

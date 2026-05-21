@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const appointments = await getAppointments();
+  const appointments = await getAppointments({ includeDeleted: true });
   const ics = buildCalendarFeed(appointments);
 
   return new Response(ics, {

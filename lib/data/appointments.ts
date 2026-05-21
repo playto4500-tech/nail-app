@@ -19,6 +19,7 @@ export type Appointment = {
   tip: null | number;
   status: AppointmentStatus;
   notes: string;
+  deletedAt: null | string;
   createdAt: string;
 };
 
@@ -35,6 +36,7 @@ type AppointmentRow = {
   appointment_tip: null | number;
   status: AppointmentStatus;
   notes: null | string;
+  deleted_at: null | string;
   created_at: string;
   clients:
     | null
@@ -58,15 +60,21 @@ type AppointmentAddonRow = {
       }>;
 };
 
-export async function getAppointments() {
+export async function getAppointments(options?: { includeDeleted?: boolean }) {
   const supabase = await createClient();
-  const appointmentsResponse = await supabase
+  let appointmentsQuery = supabase
     .from("appointments")
     .select(
-      "id, client_id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, appointment_tip, status, notes, created_at, clients(status)",
+      "id, client_id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, appointment_tip, status, notes, deleted_at, created_at, clients(status)",
     )
     .order("appointment_date", { ascending: true })
     .order("appointment_time", { ascending: true });
+
+  if (!options?.includeDeleted) {
+    appointmentsQuery = appointmentsQuery.is("deleted_at", null);
+  }
+
+  const appointmentsResponse = await appointmentsQuery;
 
   if (appointmentsResponse.error) {
     throw new Error(
@@ -125,6 +133,7 @@ export async function getAppointments() {
       tip: appointment.appointment_tip,
       status: appointment.status,
       notes: appointment.notes ?? "",
+      deletedAt: appointment.deleted_at,
       createdAt: appointment.created_at,
     };
   });
@@ -190,6 +199,7 @@ export async function updateAppointment(input: {
       appointment_tip: null,
       status: input.status,
       notes: input.notes || null,
+      deleted_at: null,
     })
     .eq("id", input.appointmentId);
 
@@ -207,6 +217,7 @@ export async function updateAppointmentStatus(input: {
     .from("appointments")
     .update({
       status: input.status,
+      deleted_at: null,
     })
     .eq("id", input.appointmentId);
 
@@ -235,6 +246,7 @@ export async function completeAppointment(input: {
       appointment_tip: input.tip,
       status: "completed",
       notes: input.notes || null,
+      deleted_at: null,
     })
     .eq("id", input.appointmentId);
 
@@ -272,7 +284,12 @@ export async function completeAppointment(input: {
 
 export async function deleteAppointmentRecord(appointmentId: number) {
   const supabase = await createClient();
-  const { error } = await supabase.from("appointments").delete().eq("id", appointmentId);
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      deleted_at: new Date().toISOString(),
+    })
+    .eq("id", appointmentId);
 
   if (error) {
     throw new Error(`Failed to delete appointment: ${error.message}`);
