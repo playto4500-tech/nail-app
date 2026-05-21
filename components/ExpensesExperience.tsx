@@ -126,9 +126,6 @@ export default function ExpensesExperience({ recentExpenses }: Props) {
       <section className="space-y-3 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
         <div>
           <p className="text-sm font-semibold text-slate-900">Ostatnie wydatki</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Szybki podgląd ostatnich kosztów dodanych ręcznie.
-          </p>
         </div>
 
         {actionError && !isExpenseModalOpen ? (

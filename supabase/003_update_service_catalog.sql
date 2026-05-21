@@ -49,9 +49,8 @@ values
   ('addon', 'Baby boomer', 20),
   ('addon', 'French', 10),
   ('addon', 'Wzorki', 20)
-on conflict (name) do update
+on conflict (category, name) do update
 set
-  category = excluded.category,
   price = excluded.price;
 
 drop policy if exists "Anyone can update services" on public.services;

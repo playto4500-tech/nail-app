@@ -21,8 +21,9 @@ export type ClientVisit = {
   clientId: null | number;
   date: string;
   time: string;
-  serviceName: string;
-  price: number;
+  serviceName: null | string;
+  price: null | number;
+  tip: null | number;
   status: "confirmed" | "cancelled" | "scheduled" | "completed";
   notes: string;
 };
@@ -41,8 +42,9 @@ type ClientVisitRow = {
   client_id: null | number;
   appointment_date: string;
   appointment_time: string;
-  service_name: string;
-  appointment_price: number;
+  service_name: null | string;
+  appointment_price: null | number;
+  appointment_tip: null | number;
   status: ClientVisit["status"];
   notes: null | string;
 };
@@ -69,7 +71,7 @@ export async function getClients() {
   const { data, error } = await supabase
     .from("clients")
     .select("id, name, instagram_handle, status, notes, created_at")
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to load clients: ${error.message}`);
@@ -87,7 +89,7 @@ export async function getClientSummaries() {
   const { data, error } = await supabase
     .from("clients")
     .select("id, name, instagram_handle, status")
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to load client summaries: ${error.message}`);
@@ -125,7 +127,7 @@ export async function getClientVisitHistories() {
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, client_id, appointment_date, appointment_time, service_name, appointment_price, status, notes",
+      "id, client_id, appointment_date, appointment_time, service_name, appointment_price, appointment_tip, status, notes",
     )
     .order("appointment_date", { ascending: false })
     .order("appointment_time", { ascending: false });
@@ -157,6 +159,7 @@ export async function getClientVisitHistories() {
           time: visit.appointment_time,
           serviceName: visit.service_name,
           price: visit.appointment_price,
+          tip: visit.appointment_tip,
           status: visit.status,
           notes: visit.notes ?? "",
         },

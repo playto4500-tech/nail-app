@@ -10,6 +10,7 @@ const navigationItems = [
   { href: "/clients", label: "Klientki" },
   { href: "/services", label: "Usługi" },
   { href: "/inventory", label: "Zasoby" },
+  { href: "/planner", label: "Planner" },
   { href: "/money", label: "Pieniądze" },
 ];
 
@@ -20,6 +21,7 @@ const pageTitles: Record<string, string> = {
   "/clients": "Klientki",
   "/services": "Usługi",
   "/inventory": "Zasoby",
+  "/planner": "Planner",
   "/money": "Pieniądze",
 };
 

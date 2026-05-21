@@ -21,6 +21,7 @@ type ExpenseRow = {
 type IncomeRow = {
   appointment_date: string;
   appointment_price: number;
+  appointment_tip: null | number;
 };
 
 export type FinancePeriodSummary = {
@@ -114,7 +115,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const [incomeResponse, expenseResponse] = await Promise.all([
     supabase
       .from("appointments")
-      .select("appointment_date, appointment_price")
+      .select("appointment_date, appointment_price, appointment_tip")
       .eq("status", "completed")
       .gte("appointment_date", queryStartKey)
       .lte("appointment_date", endOfYearKey),
@@ -137,7 +138,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
 
   const incomes = ((incomeResponse.data ?? []) as IncomeRow[]).map((item) => ({
     date: item.appointment_date,
-    amount: item.appointment_price,
+    amount: item.appointment_price + (item.appointment_tip ?? 0),
   }));
   const expenses = ((expenseResponse.data ?? []) as ExpenseRow[]).map((item) => ({
     id: item.id,

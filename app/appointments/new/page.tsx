@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import NewAppointmentForm from "../../../components/NewAppointmentForm";
+import { getAppointments } from "../../../lib/data/appointments";
 import { getClientSummaries } from "../../../lib/data/clients";
-import { getServices } from "../../../lib/data/services";
 import { isSupabaseConfigured } from "../../../lib/supabase/env";
 
 export default function NewAppointmentPage() {
@@ -51,14 +51,14 @@ export default function NewAppointmentPage() {
 }
 
 async function NewAppointmentPageContent() {
-  const [clients, services] = await Promise.all([
+  const [clients, appointments] = await Promise.all([
     getClientSummaries(),
-    getServices(),
+    getAppointments(),
   ]);
 
   return (
     <>
-      <NewAppointmentForm clients={clients} services={services} />
+      <NewAppointmentForm clients={clients} appointments={appointments} />
 
       {clients.length === 0 ? (
         <section className="rounded-[24px] border border-dashed border-slate-200 bg-white p-5 shadow-sm shadow-slate-200">

@@ -10,21 +10,23 @@ create table if not exists public.clients (
 create table if not exists public.services (
   id bigint generated always as identity primary key,
   category text not null check (category in ('service', 'addon')),
-  name text not null unique,
-  price integer not null check (price > 0),
+  name text not null,
+  price integer not null check (price >= 0),
+  unique (category, name),
   created_at timestamptz not null default now()
 );
 
 create table if not exists public.appointments (
   id bigint generated always as identity primary key,
   client_id bigint references public.clients (id) on delete set null,
-  service_id bigint not null references public.services (id) on delete restrict,
+  service_id bigint references public.services (id) on delete restrict,
   client_name text not null,
   client_instagram_handle text,
-  service_name text not null,
+  service_name text,
   appointment_date date not null,
   appointment_time time not null,
-  appointment_price integer not null check (appointment_price > 0),
+  appointment_price integer check (appointment_price is null or appointment_price > 0),
+  appointment_tip integer check (appointment_tip is null or appointment_tip >= 0),
   status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
   notes text,
   created_at timestamptz not null default now()
@@ -104,7 +106,7 @@ create policy "Anyone can insert services"
 on public.services
 for insert
 to anon, authenticated
-with check (category in ('service', 'addon') and price > 0 and char_length(name) > 0);
+with check (category in ('service', 'addon') and price >= 0 and char_length(name) > 0);
 
 drop policy if exists "Anyone can update services" on public.services;
 create policy "Anyone can update services"
@@ -112,7 +114,7 @@ on public.services
 for update
 to anon, authenticated
 using (true)
-with check (category in ('service', 'addon') and price > 0 and char_length(name) > 0);
+with check (category in ('service', 'addon') and price >= 0 and char_length(name) > 0);
 
 drop policy if exists "Anyone can read appointments" on public.appointments;
 create policy "Anyone can read appointments"
@@ -128,12 +130,16 @@ for insert
 to anon, authenticated
 with check (
   client_id is not null
-  and
-  service_id is not null
   and char_length(client_name) > 0
-  and char_length(service_name) > 0
-  and appointment_price > 0
   and status in ('confirmed', 'cancelled', 'scheduled', 'completed')
+  and (
+    status <> 'completed'
+    or (
+      service_id is not null
+      and char_length(coalesce(service_name, '')) > 0
+      and appointment_price > 0
+    )
+  )
 );
 
 drop policy if exists "Anyone can update appointments" on public.appointments;
@@ -143,11 +149,16 @@ for update
 to anon, authenticated
 using (true)
 with check (
-  service_id is not null
-  and char_length(client_name) > 0
-  and char_length(service_name) > 0
-  and appointment_price > 0
+  char_length(client_name) > 0
   and status in ('confirmed', 'cancelled', 'scheduled', 'completed')
+  and (
+    status <> 'completed'
+    or (
+      service_id is not null
+      and char_length(coalesce(service_name, '')) > 0
+      and appointment_price > 0
+    )
+  )
 );
 
 drop policy if exists "Anyone can delete appointments" on public.appointments;
@@ -223,10 +234,12 @@ values
   ('service', 'Przedłużenie żelowe do 2', 120),
   ('service', 'Przedłużenie żelowe od 2', 140),
   ('service', 'Hybryda', 80),
+  ('service', 'Inne', 0),
   ('service', 'Manicure', 50),
   ('service', 'Pedicure', 80),
   ('service', 'Żel na naturalnej płytce', 100),
+  ('addon', 'Inne', 0),
   ('addon', 'Wzorki', 20),
   ('addon', 'French', 10),
   ('addon', 'Baby boomer', 20)
-on conflict (name) do nothing;
+on conflict (category, name) do nothing;

@@ -456,9 +456,9 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                         <p className="text-sm font-semibold text-slate-900">
                           {formatDate(visit.date)} · {visit.time}
                         </p>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {visit.serviceName}
-                        </p>
+                        {visit.serviceName ? (
+                          <p className="mt-1 text-sm text-slate-600">{visit.serviceName}</p>
+                        ) : null}
                       </div>
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
                         {getStatusLabel(visit.status)}
@@ -466,9 +466,16 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                     </div>
 
                     {visit.status === "completed" ? (
-                      <p className="mt-3 text-sm font-semibold text-slate-900">
-                        {formatPrice(visit.price)}
-                      </p>
+                      <div className="mt-3">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatPrice((visit.price ?? 0) + (visit.tip ?? 0))}
+                        </p>
+                        {visit.tip ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            W tym tip: {formatPrice(visit.tip)}
+                          </p>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     {visit.notes ? (

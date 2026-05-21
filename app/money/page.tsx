@@ -96,9 +96,6 @@ export default async function MoneyPage() {
         <section className="space-y-3 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
           <div>
             <p className="text-sm font-semibold text-slate-900">Miesiąc po miesiącu</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Netto pokazuje przychody minus wydatki w danym miesiącu.
-            </p>
           </div>
 
           <div className="space-y-2">

@@ -1,44 +1,59 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { useMemo, useState } from "react";
 import { createAppointmentAction } from "../app/actions/appointments";
+import type { Appointment } from "../lib/data/appointments";
 import type { ClientSummary } from "../lib/data/clients";
-import type { ServiceItem } from "../lib/data/services";
+import {
+  getAppointmentConflictMessage,
+  getAppointmentConflicts,
+} from "../lib/ui/appointment-conflicts";
 
 type Props = {
+  appointments: Appointment[];
   clients: ClientSummary[];
-  services: ServiceItem[];
 };
 
-export default function NewAppointmentForm({ clients, services }: Props) {
-  const serviceOptions = services.filter((service) => service.category === "service");
-  const addonOptions = services.filter((service) => service.category === "addon");
+export default function NewAppointmentForm({ appointments, clients }: Props) {
   const [isNewClient, setIsNewClient] = useState(clients.length === 0);
-  const [includeAddons, setIncludeAddons] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState(
     clients[0] ? String(clients[0].id) : "",
   );
-  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const selectedClient = useMemo(
     () => clients.find((client) => String(client.id) === selectedClientId),
     [clients, selectedClientId],
   );
 
-  function handleAddonToggle(addonId: string, checked: boolean) {
-    setSelectedAddonIds((current) => {
-      if (checked) {
-        return [...current, addonId];
-      }
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const formData = new FormData(event.currentTarget);
+    const date = String(formData.get("date") ?? "");
+    const time = String(formData.get("time") ?? "");
 
-      return current.filter((id) => id !== addonId);
+    if (!date || !time) {
+      return;
+    }
+
+    const conflicts = getAppointmentConflicts({
+      appointments,
+      date,
+      time,
     });
+    const conflictMessage = getAppointmentConflictMessage(conflicts, "dodać");
+
+    if (conflictMessage && !window.confirm(conflictMessage)) {
+      event.preventDefault();
+    }
   }
 
   return (
     <form
+      ref={formRef}
       action={createAppointmentAction}
+      onSubmit={handleSubmit}
       className="space-y-4 rounded-[28px] bg-white p-6 shadow-sm shadow-slate-200"
     >
       <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -118,12 +133,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
           {selectedClient ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               <p className="font-medium text-slate-900">{selectedClient.name}</p>
-              <p className="mt-1">
-                Status:{" "}
-                <span className="font-medium text-slate-900">
-                  {selectedClient.status === "regular" ? "Stała klientka" : "Nowa klientka"}
-                </span>
-              </p>
               {selectedClient.instagramHandle ? (
                 <p className="mt-1">
                   Instagram:{" "}
@@ -160,85 +169,6 @@ export default function NewAppointmentForm({ clients, services }: Props) {
       </div>
 
       <label className="block space-y-2">
-        <span className="text-sm font-medium text-slate-700">Usługa</span>
-        <select
-          name="serviceId"
-          required
-          defaultValue=""
-          disabled={serviceOptions.length === 0}
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-        >
-          <option value="" disabled>
-            {serviceOptions.length === 0
-              ? "Najpierw dodaj usługę w cenniku"
-              : "Wybierz usługę"}
-          </option>
-          {serviceOptions.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={includeAddons}
-            disabled={addonOptions.length === 0}
-            onChange={(event) => {
-              const isChecked = event.target.checked;
-              setIncludeAddons(isChecked);
-
-              if (!isChecked) {
-                setSelectedAddonIds([]);
-              }
-            }}
-            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-          />
-          <span className="text-sm font-medium text-slate-700">Dodatek</span>
-        </label>
-
-        {includeAddons ? (
-          addonOptions.length > 0 ? (
-            <div className="space-y-2">
-              {addonOptions.map((addon) => {
-                const isSelected = selectedAddonIds.includes(String(addon.id));
-
-                return (
-                  <label
-                    key={addon.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                  >
-                    <span className="flex items-center gap-3 min-w-0">
-                      <input
-                        name="addonIds"
-                        type="checkbox"
-                        value={addon.id}
-                        checked={isSelected}
-                        onChange={(event) =>
-                          handleAddonToggle(String(addon.id), event.target.checked)
-                        }
-                        className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                      />
-                      <span className="min-w-0 text-sm font-medium text-slate-900">
-                        {addon.name}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-              Nie ma jeszcze żadnych dodatków w cenniku.
-            </div>
-          )
-        ) : null}
-      </section>
-
-      <label className="block space-y-2">
         <span className="text-sm font-medium text-slate-700">Status</span>
         <select
           name="status"
@@ -270,7 +200,7 @@ export default function NewAppointmentForm({ clients, services }: Props) {
 
         <button
           type="submit"
-          disabled={serviceOptions.length === 0 || (!isNewClient && clients.length === 0)}
+          disabled={!isNewClient && clients.length === 0}
           className="flex-1 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
         >
           Zapisz wizytę

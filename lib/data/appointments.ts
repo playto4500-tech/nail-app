@@ -12,17 +12,14 @@ export type Appointment = {
   clientStatus: "regular" | "new";
   date: string;
   time: string;
-  serviceId: number;
-  serviceName: string;
-  price: number;
+  serviceId: null | number;
+  serviceName: null | string;
+  addonNames: string[];
+  price: null | number;
+  tip: null | number;
   status: AppointmentStatus;
   notes: string;
   createdAt: string;
-  addons: Array<{
-    serviceId: number;
-    name: string;
-    price: number;
-  }>;
 };
 
 type AppointmentRow = {
@@ -32,9 +29,10 @@ type AppointmentRow = {
   client_instagram_handle: null | string;
   appointment_date: string;
   appointment_time: string;
-  service_id: number;
-  service_name: string;
-  appointment_price: number;
+  service_id: null | number;
+  service_name: null | string;
+  appointment_price: null | number;
+  appointment_tip: null | number;
   status: AppointmentStatus;
   notes: null | string;
   created_at: string;
@@ -46,21 +44,17 @@ type AppointmentRow = {
     | Array<{
         status: ClientStatus;
       }>;
-  appointment_addons:
+};
+
+type AppointmentAddonRow = {
+  appointment_id: number;
+  services:
     | null
+    | {
+        name: string;
+      }
     | Array<{
-        service_id: number;
-        addon_price: number;
-        services:
-          | null
-          | {
-              id: number;
-              name: string;
-            }
-          | Array<{
-              id: number;
-              name: string;
-            }>;
+        name: string;
       }>;
 };
 
@@ -69,7 +63,7 @@ export async function getAppointments() {
   const appointmentsResponse = await supabase
     .from("appointments")
     .select(
-      "id, client_id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, status, notes, created_at, clients(status), appointment_addons(service_id, addon_price, services(id, name))",
+      "id, client_id, client_name, client_instagram_handle, appointment_date, appointment_time, service_id, service_name, appointment_price, appointment_tip, status, notes, created_at, clients(status)",
     )
     .order("appointment_date", { ascending: true })
     .order("appointment_time", { ascending: true });
@@ -80,23 +74,39 @@ export async function getAppointments() {
     );
   }
 
-  return ((appointmentsResponse.data ?? []) as AppointmentRow[]).map((appointment) => {
+  const appointmentRows = (appointmentsResponse.data ?? []) as AppointmentRow[];
+  const appointmentIds = appointmentRows.map((appointment) => appointment.id);
+  const addonsByAppointmentId = new Map<number, string[]>();
+
+  if (appointmentIds.length > 0) {
+    const appointmentAddonsResponse = await supabase
+      .from("appointment_addons")
+      .select("appointment_id, services(name)")
+      .in("appointment_id", appointmentIds);
+
+    if (appointmentAddonsResponse.error) {
+      throw new Error(
+        `Failed to load appointment addons: ${appointmentAddonsResponse.error.message}`,
+      );
+    }
+
+    ((appointmentAddonsResponse.data ?? []) as AppointmentAddonRow[]).forEach((item) => {
+      const relatedService = Array.isArray(item.services) ? item.services[0] : item.services;
+
+      if (!relatedService?.name) {
+        return;
+      }
+
+      const currentAddons = addonsByAppointmentId.get(item.appointment_id) ?? [];
+      currentAddons.push(normalizeKnownServiceName(relatedService.name));
+      addonsByAppointmentId.set(item.appointment_id, currentAddons);
+    });
+  }
+
+  return appointmentRows.map((appointment) => {
     const relatedClient = Array.isArray(appointment.clients)
       ? appointment.clients[0]
       : appointment.clients;
-    const addons = (appointment.appointment_addons ?? []).map((addon) => {
-      const relatedService = Array.isArray(addon.services)
-        ? addon.services[0]
-        : addon.services;
-
-      return {
-        serviceId: addon.service_id,
-        name: relatedService?.name
-          ? normalizeKnownServiceName(relatedService.name)
-          : "Dodatek",
-        price: addon.addon_price,
-      };
-    });
 
     return {
       id: appointment.id,
@@ -109,12 +119,13 @@ export async function getAppointments() {
       serviceId: appointment.service_id,
       serviceName: appointment.service_name
         ? normalizeKnownServiceName(appointment.service_name)
-        : "Nieznana usługa",
+        : null,
+      addonNames: addonsByAppointmentId.get(appointment.id) ?? [],
       price: appointment.appointment_price,
+      tip: appointment.appointment_tip,
       status: appointment.status,
       notes: appointment.notes ?? "",
       createdAt: appointment.created_at,
-      addons,
     };
   });
 }
@@ -125,9 +136,6 @@ export async function createAppointment(input: {
   clientInstagramHandle: null | string;
   date: string;
   time: string;
-  serviceId: number;
-  serviceName: string;
-  price: number;
   status: AppointmentStatus;
   notes: string;
 }) {
@@ -140,9 +148,10 @@ export async function createAppointment(input: {
       client_instagram_handle: input.clientInstagramHandle || null,
       appointment_date: input.date,
       appointment_time: input.time,
-      service_id: input.serviceId,
-      service_name: input.serviceName,
-      appointment_price: input.price,
+      service_id: null,
+      service_name: null,
+      appointment_price: null,
+      appointment_tip: null,
       status: input.status,
       notes: input.notes || null,
     })
@@ -163,9 +172,6 @@ export async function updateAppointment(input: {
   clientInstagramHandle: null | string;
   date: string;
   time: string;
-  serviceId: number;
-  serviceName: string;
-  price: number;
   status: AppointmentStatus;
   notes: string;
 }) {
@@ -178,9 +184,10 @@ export async function updateAppointment(input: {
       client_instagram_handle: input.clientInstagramHandle || null,
       appointment_date: input.date,
       appointment_time: input.time,
-      service_id: input.serviceId,
-      service_name: input.serviceName,
-      appointment_price: input.price,
+      service_id: null,
+      service_name: null,
+      appointment_price: null,
+      appointment_tip: null,
       status: input.status,
       notes: input.notes || null,
     })
@@ -210,14 +217,22 @@ export async function updateAppointmentStatus(input: {
 
 export async function completeAppointment(input: {
   appointmentId: number;
+  serviceId: number;
+  serviceName: string;
+  addonId: null | number;
+  addonPrice: null | number;
   price: number;
+  tip: null | number;
   notes: string;
 }) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("appointments")
     .update({
+      service_id: input.serviceId,
+      service_name: input.serviceName,
       appointment_price: input.price,
+      appointment_tip: input.tip,
       status: "completed",
       notes: input.notes || null,
     })
@@ -226,42 +241,32 @@ export async function completeAppointment(input: {
   if (error) {
     throw new Error(`Failed to complete appointment: ${error.message}`);
   }
-}
 
-export async function createAppointmentAddons(input: {
-  appointmentId: number;
-  addons: Array<{
-    serviceId: number;
-    price: number;
-  }>;
-}) {
-  if (input.addons.length === 0) {
-    return;
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("appointment_addons").insert(
-    input.addons.map((addon) => ({
-      appointment_id: input.appointmentId,
-      service_id: addon.serviceId,
-      addon_price: addon.price,
-    })),
-  );
-
-  if (error) {
-    throw new Error(`Failed to create appointment addons: ${error.message}`);
-  }
-}
-
-export async function deleteAppointmentAddons(appointmentId: number) {
-  const supabase = await createClient();
-  const { error } = await supabase
+  const deleteAddonsResponse = await supabase
     .from("appointment_addons")
     .delete()
-    .eq("appointment_id", appointmentId);
+    .eq("appointment_id", input.appointmentId);
 
-  if (error) {
-    throw new Error(`Failed to delete appointment addons: ${error.message}`);
+  if (deleteAddonsResponse.error) {
+    throw new Error(
+      `Failed to clear appointment addons: ${deleteAddonsResponse.error.message}`,
+    );
+  }
+
+  if (input.addonId && input.addonPrice !== null) {
+    // `appointment_addons` still requires a positive snapshot price.
+    const persistedAddonPrice = input.addonPrice > 0 ? input.addonPrice : 1;
+    const insertAddonResponse = await supabase.from("appointment_addons").insert({
+      appointment_id: input.appointmentId,
+      service_id: input.addonId,
+      addon_price: persistedAddonPrice,
+    });
+
+    if (insertAddonResponse.error) {
+      throw new Error(
+        `Failed to save appointment addon: ${insertAddonResponse.error.message}`,
+      );
+    }
   }
 }
 
