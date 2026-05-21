@@ -34,6 +34,22 @@ type Props = {
   services: ServiceItem[];
 };
 
+function getAppointmentCountBadgeClasses(count: number, isSelected: boolean) {
+  if (count >= 4) {
+    return isSelected ? "bg-rose-500 text-white" : "bg-rose-100 text-rose-700";
+  }
+
+  if (count === 3) {
+    return isSelected ? "bg-orange-500 text-white" : "bg-orange-100 text-orange-700";
+  }
+
+  if (count === 2) {
+    return isSelected ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-700";
+  }
+
+  return isSelected ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-700";
+}
+
 function getDisplayAppointment(
   appointment: Appointment,
   completedState: null | AppointmentCompletionState,
@@ -251,7 +267,7 @@ export default function PlannerExperience({ appointments, clients, services }: P
                           key={day.dateKey}
                           type="button"
                           onClick={() => handleDaySelect(day.dateKey)}
-                          className={`min-h-[72px] rounded-[22px] border px-2 py-2 text-left transition ${
+                          className={`relative min-h-[72px] rounded-[22px] border px-2 py-2 text-left transition ${
                             isSelected
                               ? "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300"
                               : day.inCurrentMonth
@@ -259,37 +275,25 @@ export default function PlannerExperience({ appointments, clients, services }: P
                                 : "border-slate-100 bg-white/70 text-slate-400 hover:bg-white"
                           }`}
                         >
-                          <div className="flex h-full flex-col justify-between">
-                            <div className="flex items-center justify-between gap-1">
-                              <span
-                                className={`text-sm font-semibold ${
-                                  day.isToday && !isSelected ? "text-emerald-700" : ""
-                                }`}
-                              >
-                                {day.dayNumber}
-                              </span>
-                              {dayAppointments.length > 0 ? (
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                    isSelected
-                                      ? "bg-white/15 text-white"
-                                      : "bg-slate-100 text-slate-700"
-                                  }`}
-                                >
-                                  {dayAppointments.length}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {dayAppointments.slice(0, 3).map((appointment) => (
-                                <span
-                                  key={appointment.id}
-                                  className={`h-1.5 w-1.5 rounded-full ${
-                                    isSelected ? "bg-white" : "bg-slate-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
+                          {dayAppointments.length > 0 ? (
+                            <span
+                              className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                                dayAppointments.length,
+                                isSelected,
+                              )}`}
+                            >
+                              {dayAppointments.length}
+                            </span>
+                          ) : null}
+
+                          <div className="flex h-full items-end">
+                            <span
+                              className={`text-sm font-semibold ${
+                                day.isToday && !isSelected ? "text-emerald-700" : ""
+                              }`}
+                            >
+                              {day.dayNumber}
+                            </span>
                           </div>
                         </button>
                       );
@@ -308,12 +312,22 @@ export default function PlannerExperience({ appointments, clients, services }: P
                       key={day.dateKey}
                       type="button"
                       onClick={() => handleDaySelect(day.dateKey)}
-                      className={`rounded-[24px] border px-2 py-3 text-center transition ${
+                      className={`relative rounded-[24px] border px-2 py-3 text-center transition ${
                         isSelected
                           ? "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300"
                           : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
                       }`}
                     >
+                      {dayAppointments.length > 0 ? (
+                        <span
+                          className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                            dayAppointments.length,
+                            isSelected,
+                          )}`}
+                        >
+                          {dayAppointments.length}
+                        </span>
+                      ) : null}
                       <p className="text-[11px] font-medium uppercase tracking-[0.12em]">
                         {
                           weekdayLabels[
@@ -333,7 +347,7 @@ export default function PlannerExperience({ appointments, clients, services }: P
                           isSelected ? "text-white/80" : "text-slate-500"
                         }`}
                       >
-                        {dayAppointments.length > 0 ? `${dayAppointments.length} wiz.` : "Wolne"}
+                        {dayAppointments.length > 0 ? "Zajęte" : "Wolne"}
                       </p>
                     </button>
                   );

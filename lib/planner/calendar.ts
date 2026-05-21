@@ -11,7 +11,7 @@ export type CalendarDay = {
 };
 
 const WEEKDAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Niedz"];
-const WORKDAY_START_MINUTES = 8 * 60;
+const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 20 * 60;
 const SLOT_INTERVAL_MINUTES = 30;
 
@@ -123,9 +123,8 @@ function minutesToTimeLabel(totalMinutes: number) {
 export function getSuggestedTimeSlots(
   dateKey: string,
   appointments: Appointment[],
-  now = new Date(),
 ) {
-  const todayKey = toDateKey(now);
+  const todayKey = toDateKey(new Date());
 
   if (dateKey < todayKey) {
     return [];
@@ -137,19 +136,10 @@ export function getSuggestedTimeSlots(
       .map((appointment) => appointment.time.slice(0, 5)),
   );
 
-  let startMinutes = WORKDAY_START_MINUTES;
-
-  if (dateKey === todayKey) {
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const roundedMinutes =
-      Math.ceil(currentMinutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
-    startMinutes = Math.max(startMinutes, roundedMinutes);
-  }
-
   const availableSlots: string[] = [];
 
   for (
-    let currentMinutes = startMinutes;
+    let currentMinutes = WORKDAY_START_MINUTES;
     currentMinutes <= WORKDAY_END_MINUTES;
     currentMinutes += SLOT_INTERVAL_MINUTES
   ) {
@@ -159,6 +149,5 @@ export function getSuggestedTimeSlots(
       availableSlots.push(label);
     }
   }
-
-  return availableSlots.slice(0, 8);
+  return availableSlots;
 }
