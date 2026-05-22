@@ -60,6 +60,10 @@ type AppointmentAddonRow = {
       }>;
 };
 
+function normalizeAppointmentTime(time: string) {
+  return time.slice(0, 5);
+}
+
 export async function getAppointments(options?: { includeDeleted?: boolean }) {
   const supabase = await createClient();
   let appointmentsQuery = supabase
@@ -123,7 +127,7 @@ export async function getAppointments(options?: { includeDeleted?: boolean }) {
       clientInstagramHandle: appointment.client_instagram_handle ?? null,
       clientStatus: relatedClient?.status ?? "new",
       date: appointment.appointment_date,
-      time: appointment.appointment_time,
+      time: normalizeAppointmentTime(appointment.appointment_time),
       serviceId: appointment.service_id,
       serviceName: appointment.service_name
         ? normalizeKnownServiceName(appointment.service_name)

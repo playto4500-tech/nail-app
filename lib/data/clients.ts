@@ -50,6 +50,10 @@ type ClientVisitRow = {
   deleted_at: null | string;
 };
 
+function normalizeAppointmentTime(time: string) {
+  return time.slice(0, 5);
+}
+
 function getTodayDateKey() {
   const today = new Date();
   const year = today.getFullYear();
@@ -161,7 +165,7 @@ export async function getClientVisitHistories() {
           id: visit.id,
           clientId: visit.client_id,
           date: visit.appointment_date,
-          time: visit.appointment_time,
+          time: normalizeAppointmentTime(visit.appointment_time),
           serviceName: visit.service_name,
           price: visit.appointment_price,
           tip: visit.appointment_tip,

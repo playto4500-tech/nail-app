@@ -125,18 +125,18 @@ export default function AppointmentsExperience({
             setModalMode("details");
             setSelectedAppointmentId(appointment.id);
           }}
-          className={`block w-full rounded-[24px] px-5 pt-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-            canComplete ? "pb-14" : "pb-4"
+          className={`block w-full rounded-[24px] px-5 pt-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${
+            canComplete ? "pb-[3.25rem]" : "pb-3.5"
           }`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm text-slate-500">{displayAppointment.time}</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">
+              <p className="mt-1.5 text-lg font-semibold text-slate-900">
                 {displayAppointment.clientName}
               </p>
               {displayAppointment.clientInstagramHandle ? (
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-0.5 text-sm text-slate-500">
                   {displayAppointment.clientInstagramHandle}
                 </p>
               ) : null}
@@ -149,7 +149,7 @@ export default function AppointmentsExperience({
             </span>
           </div>
 
-          <div className="mt-3 space-y-2 text-sm text-slate-600">
+          <div className="mt-2.5 space-y-1.5 text-sm text-slate-600">
             {displayAppointment.serviceName ? (
               <p>
                 Usługa:{" "}

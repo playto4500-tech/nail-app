@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "predev": "node scripts/sync-next-wasm.mjs",
+    "dev": "next dev --webpack",
+    "prebuild": "node scripts/sync-next-wasm.mjs",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/sync-next-wasm.mjs"
   },
   "dependencies": {
+    "@next/swc-wasm-nodejs": "^16.2.6",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "next": "16.2.6",

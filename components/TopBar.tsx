@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useRef } from "react";
 
 const navigationItems = [
-  { href: "/", label: "Pulpit" },
   { href: "/appointments", label: "Wizyty" },
   { href: "/clients", label: "Klientki" },
   { href: "/services", label: "Usługi" },
@@ -15,7 +14,7 @@ const navigationItems = [
 ];
 
 const pageTitles: Record<string, string> = {
-  "/": "Pulpit",
+  "/": "Wizyty",
   "/appointments": "Wizyty",
   "/appointments/new": "Nowa wizyta",
   "/clients": "Klientki",
@@ -32,10 +31,6 @@ export default function TopBar() {
   const title = pageTitles[pathname] ?? "Nail Studio Manager";
 
   function isItemActive(href: string) {
-    if (href === "/") {
-      return pathname === "/";
-    }
-
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -71,7 +66,36 @@ export default function TopBar() {
             <p className="text-base font-semibold text-slate-900">{title}</p>
           </div>
 
-          <div className="h-10 w-10" />
+          <Link
+            href="/planner"
+            className={`flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition ${
+              isItemActive("/planner")
+                ? "border-slate-900 bg-slate-900 text-white shadow-slate-300"
+                : "border-slate-200 bg-white text-slate-700 shadow-slate-200 hover:bg-slate-100"
+            }`}
+            aria-label="Przejdź do planera"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-[18px] w-[18px]"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            >
+              <path d="M8 2v4" />
+              <path d="M16 2v4" />
+              <rect x="3" y="5" width="18" height="16" rx="3" />
+              <path d="M3 10h18" />
+              <path d="M8 14h.01" />
+              <path d="M12 14h.01" />
+              <path d="M16 14h.01" />
+              <path d="M8 18h.01" />
+              <path d="M12 18h.01" />
+            </svg>
+          </Link>
         </div>
       </header>
 

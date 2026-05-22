@@ -5,12 +5,6 @@ export default function BottomNav() {
     <nav className="border-t border-slate-200 bg-white px-4 py-3">
       <div className="mx-auto flex max-w-md flex-wrap items-center justify-center gap-2">
         <Link
-          href="/"
-          className="min-w-[72px] rounded-2xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-        >
-          Pulpit
-        </Link>
-        <Link
           href="/appointments"
           className="min-w-[72px] rounded-2xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
         >
@@ -33,6 +27,12 @@ export default function BottomNav() {
           className="min-w-[72px] rounded-2xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
         >
           Pieniądze
+        </Link>
+        <Link
+          href="/planner"
+          className="min-w-[72px] rounded-2xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Planner
         </Link>
       </div>
     </nav>

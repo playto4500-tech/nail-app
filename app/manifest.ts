@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Nail Studio Manager",
     short_name: "Nails",
     description: "Prywatna aplikacja do zarzadzania wizytami stylistki paznokci.",
-    start_url: "/",
+    start_url: "/appointments",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

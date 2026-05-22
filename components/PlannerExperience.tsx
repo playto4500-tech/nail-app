@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AppointmentDetailsModal from "./AppointmentDetailsModal";
 import type { Appointment } from "../lib/data/appointments";
@@ -172,6 +173,8 @@ export default function PlannerExperience({ appointments, clients, services }: P
     setAnchorDate(parseDateKey(dateKey));
   }
 
+  const addAppointmentHref = `/appointments/new?date=${selectedDateKey}`;
+
   return (
     <>
       {toast ? (
@@ -314,21 +317,13 @@ export default function PlannerExperience({ appointments, clients, services }: P
                       key={day.dateKey}
                       type="button"
                       onClick={() => handleDaySelect(day.dateKey)}
-                      className={`relative rounded-[24px] border px-2 py-3 text-center transition ${
+                      className={`rounded-[24px] border px-2 py-3 text-center transition ${
                         isSelected
                           ? "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300"
                           : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
                       }`}
                     >
-                      <span
-                        className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
-                          dayAppointments.length,
-                          isSelected,
-                        )}`}
-                      >
-                        {dayAppointments.length}
-                      </span>
-                      <p className="text-[11px] font-medium uppercase tracking-[0.12em]">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.08em]">
                         {
                           weekdayLabels[
                             day.date.getDay() === 0 ? 6 : day.date.getDay() - 1
@@ -336,12 +331,20 @@ export default function PlannerExperience({ appointments, clients, services }: P
                         }
                       </p>
                       <p
-                        className={`mt-2 text-lg font-semibold ${
+                        className={`mt-1.5 text-lg font-semibold ${
                           day.isToday && !isSelected ? "text-emerald-700" : ""
                         }`}
                       >
                         {day.dayNumber}
                       </p>
+                      <span
+                        className={`mt-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                          dayAppointments.length,
+                          isSelected,
+                        )}`}
+                      >
+                        {dayAppointments.length}
+                      </span>
                     </button>
                   );
                 })}
@@ -386,11 +389,27 @@ export default function PlannerExperience({ appointments, clients, services }: P
                   </span>
                 </button>
               ))}
+
+              <Link
+                href={addAppointmentHref}
+                className="flex w-full items-center justify-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-4 text-center transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-white">
+                  +
+                </span>
+                <span className="text-sm font-semibold text-slate-900">Dodaj wizytę</span>
+              </Link>
             </div>
           ) : (
-            <div className="mt-4 rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-              Ten dzień jest na razie pusty.
-            </div>
+            <Link
+              href={addAppointmentHref}
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-5 text-center transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-lg text-white">
+                +
+              </span>
+              <span className="text-sm font-semibold text-slate-900">Dodaj wizytę</span>
+            </Link>
           )}
 
           {selectedDateKey >= todayDateKey ? (

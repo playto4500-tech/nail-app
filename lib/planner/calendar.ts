@@ -10,7 +10,7 @@ export type CalendarDay = {
   isToday: boolean;
 };
 
-const WEEKDAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Niedz"];
+const WEEKDAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"];
 const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 20 * 60;
 const SLOT_INTERVAL_MINUTES = 30;

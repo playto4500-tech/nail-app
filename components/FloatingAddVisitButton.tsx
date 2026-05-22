@@ -1,6 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function FloatingAddVisitButton() {
+  const pathname = usePathname();
+
+  if (pathname === "/planner") {
+    return null;
+  }
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
       <Link
