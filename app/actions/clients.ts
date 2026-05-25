@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { actionError, actionOk, type ActionResult } from "../../lib/actions/results";
 import {
   createClientRecord,
   deleteClientRecord,
@@ -28,7 +29,7 @@ export async function createClientAction(formData: FormData) {
   revalidatePath("/appointments/new");
 }
 
-export async function updateClientAction(formData: FormData) {
+export async function updateClientAction(formData: FormData): Promise<ActionResult> {
   const id = Number(formData.get("clientId") ?? 0);
   const name = String(formData.get("name") ?? "").trim();
   const instagramHandle = String(formData.get("instagramHandle") ?? "").trim();
@@ -36,9 +37,7 @@ export async function updateClientAction(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!id || !name || (status !== "regular" && status !== "new")) {
-    return {
-      ok: false,
-    };
+    return actionError("Uzupełnij poprawnie dane klientki.");
   }
 
   try {
@@ -50,50 +49,36 @@ export async function updateClientAction(formData: FormData) {
       notes,
     });
   } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Nie udało się zapisać klientki.",
-      ok: false,
-    };
+    return actionError(
+      error instanceof Error ? error.message : "Nie udało się zapisać klientki.",
+    );
   }
 
   revalidatePath("/clients");
   revalidatePath("/appointments");
   revalidatePath("/appointments/new");
 
-  return {
-    ok: true,
-  };
+  return actionOk();
 }
 
-export async function deleteClientAction(formData: FormData) {
+export async function deleteClientAction(formData: FormData): Promise<ActionResult> {
   const id = Number(formData.get("clientId") ?? 0);
 
   if (!id) {
-    return {
-      ok: false,
-    };
+    return actionError("Nie udało się znaleźć klientki do usunięcia.");
   }
 
   try {
     await deleteClientRecord(id);
   } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Nie udało się usunąć klientki.",
-      ok: false,
-    };
+    return actionError(
+      error instanceof Error ? error.message : "Nie udało się usunąć klientki.",
+    );
   }
 
   revalidatePath("/clients");
   revalidatePath("/appointments");
   revalidatePath("/appointments/new");
 
-  return {
-    ok: true,
-  };
+  return actionOk();
 }

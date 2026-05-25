@@ -68,6 +68,14 @@ export default function AppointmentsExperience({
       );
     }
 
+    function compareAppointments(a: Appointment, b: Appointment) {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+
+      return a.time.localeCompare(b.time);
+    }
+
     const upcoming = appointments.filter(
       (appointment) => !isCompleted(appointment) && appointment.date >= todayDateKey,
     );
@@ -75,10 +83,14 @@ export default function AppointmentsExperience({
       (appointment) => isCompleted(appointment) || appointment.date < todayDateKey,
     );
 
-    function groupByDate(items: Appointment[]) {
+    function groupByDate(items: Appointment[], direction: "asc" | "desc") {
+      const sortedItems = [...items].sort((a, b) => {
+        const result = compareAppointments(a, b);
+        return direction === "asc" ? result : -result;
+      });
       const groups = new Map<string, Appointment[]>();
 
-      items.forEach((appointment) => {
+      sortedItems.forEach((appointment) => {
         const currentGroup = groups.get(appointment.date) ?? [];
         currentGroup.push(appointment);
         groups.set(appointment.date, currentGroup);
@@ -92,8 +104,8 @@ export default function AppointmentsExperience({
     }
 
     return {
-      upcomingGroups: groupByDate(upcoming),
-      pastGroups: groupByDate(past),
+      upcomingGroups: groupByDate(upcoming, "asc"),
+      pastGroups: groupByDate(past, "desc"),
       upcomingCount: upcoming.length,
       pastCount: past.length,
     };

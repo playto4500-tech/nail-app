@@ -1,4 +1,5 @@
 import type { Appointment } from "../data/appointments";
+import { getTodayDateKey } from "../utils/date";
 
 function escapeIcsText(value: string) {
   return value
@@ -34,13 +35,6 @@ function formatUtcStamp(date = new Date()) {
     .toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
-}
-
-function getTodayDateKey(now = new Date()) {
-  const year = now.getFullYear();
-  const month = pad(now.getMonth() + 1);
-  const day = pad(now.getDate());
-  return `${year}-${month}-${day}`;
 }
 
 function isFutureOrCurrentAppointment(

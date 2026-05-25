@@ -30,8 +30,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: React.ReactNode;
+  modal: React.ReactNode;
 }>) {
   return (
     <html lang="pl" className="h-full antialiased">
@@ -41,6 +43,7 @@ export default function RootLayout({
         <main className="flex-1 bg-slate-50 pt-[4.5rem] pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
+        {modal}
         <FloatingAddVisitButton />
       </body>
     </html>

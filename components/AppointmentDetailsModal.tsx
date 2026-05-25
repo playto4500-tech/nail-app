@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   cancelAppointmentAction,
@@ -11,6 +11,8 @@ import {
 import type { Appointment } from "../lib/data/appointments";
 import type { ClientSummary } from "../lib/data/clients";
 import type { ServiceItem } from "../lib/data/services";
+import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
+import { useEscapeToClose } from "../lib/hooks/useEscapeToClose";
 import {
   getAppointmentConflictMessage,
   getAppointmentConflicts,
@@ -95,33 +97,12 @@ export default function AppointmentDetailsModal({
     [services],
   );
 
-  useEffect(() => {
-    if (!selectedAppointment) {
-      document.body.style.overflow = "";
-      return;
-    }
-
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [selectedAppointment]);
-
-  useEffect(() => {
-    if (!selectedAppointment) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onClose, selectedAppointment]);
+  useBodyScrollLock(Boolean(selectedAppointment));
+  useEscapeToClose({
+    enabled: Boolean(selectedAppointment),
+    isBlocked: isPending,
+    onClose,
+  });
 
   if (!selectedAppointment) {
     return null;
@@ -188,7 +169,16 @@ export default function AppointmentDetailsModal({
     formData.set("appointmentId", String(appointment.id));
 
     startTransition(async () => {
-      await updateAppointmentAction(formData);
+      const result = await updateAppointmentAction(formData);
+
+      if (!result.ok) {
+        onToast?.({
+          message: result.error ?? "Nie udało się zapisać wizyty.",
+          tone: "error",
+        });
+        return;
+      }
+
       router.refresh();
       onClose();
     });
@@ -245,7 +235,16 @@ export default function AppointmentDetailsModal({
     formData.set("appointmentId", String(appointment.id));
 
     startTransition(async () => {
-      await cancelAppointmentAction(formData);
+      const result = await cancelAppointmentAction(formData);
+
+      if (!result.ok) {
+        onToast?.({
+          message: result.error ?? "Nie udało się anulować wizyty.",
+          tone: "error",
+        });
+        return;
+      }
+
       router.refresh();
       onClose();
     });
@@ -260,7 +259,16 @@ export default function AppointmentDetailsModal({
     formData.set("appointmentId", String(appointment.id));
 
     startTransition(async () => {
-      await deleteAppointmentAction(formData);
+      const result = await deleteAppointmentAction(formData);
+
+      if (!result.ok) {
+        onToast?.({
+          message: result.error ?? "Nie udało się usunąć wizyty.",
+          tone: "error",
+        });
+        return;
+      }
+
       router.refresh();
       onClose();
     });

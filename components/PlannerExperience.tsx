@@ -392,6 +392,7 @@ export default function PlannerExperience({ appointments, clients, services }: P
 
               <Link
                 href={addAppointmentHref}
+                scroll={false}
                 className="flex w-full items-center justify-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-4 text-center transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-white">
@@ -403,6 +404,7 @@ export default function PlannerExperience({ appointments, clients, services }: P
           ) : (
             <Link
               href={addAppointmentHref}
+              scroll={false}
               className="mt-4 flex w-full items-center justify-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-5 text-center transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-lg text-white">

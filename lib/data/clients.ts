@@ -1,4 +1,5 @@
 import { createClient } from "../../utils/supabase/server";
+import { getTodayDateKey, normalizeTime } from "../utils/date";
 
 export type ClientStatus = "regular" | "new";
 
@@ -49,18 +50,6 @@ type ClientVisitRow = {
   notes: null | string;
   deleted_at: null | string;
 };
-
-function normalizeAppointmentTime(time: string) {
-  return time.slice(0, 5);
-}
-
-function getTodayDateKey() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function mapClientSummary(client: Pick<ClientRow, "id" | "name" | "instagram_handle" | "status">) {
   return {
@@ -165,7 +154,7 @@ export async function getClientVisitHistories() {
           id: visit.id,
           clientId: visit.client_id,
           date: visit.appointment_date,
-          time: normalizeAppointmentTime(visit.appointment_time),
+          time: normalizeTime(visit.appointment_time),
           serviceName: visit.service_name,
           price: visit.appointment_price,
           tip: visit.appointment_tip,

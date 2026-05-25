@@ -1,3 +1,6 @@
+import { getTodayDateKey } from "../utils/date";
+import { formatPrice } from "./format";
+
 export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled" | "completed";
 
 export type AppointmentCompletionState = {
@@ -39,10 +42,6 @@ export function formatLongDate(date: string) {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-export function formatPrice(price: number) {
-  return `${price} zł`;
-}
-
 export function getAppointmentPaidTotal(price: number, tip?: null | number) {
   return price + (tip ?? 0);
 }
@@ -79,10 +78,4 @@ export function getStatusClasses(status: AppointmentStatus) {
   return "bg-amber-100 text-amber-700";
 }
 
-export function getTodayDateKey() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+export { formatPrice, getTodayDateKey };

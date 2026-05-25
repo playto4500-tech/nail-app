@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createAppointmentAction } from "../app/actions/appointments";
 import type { Appointment } from "../lib/data/appointments";
 import type { ClientSummary } from "../lib/data/clients";
@@ -14,19 +14,32 @@ import {
 type Props = {
   appointments: Appointment[];
   clients: ClientSummary[];
+  presentation?: "modal" | "page";
 };
 
-export default function NewAppointmentForm({ appointments, clients }: Props) {
+export default function NewAppointmentForm({
+  appointments,
+  clients,
+  presentation = "page",
+}: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const [isNewClient, setIsNewClient] = useState(clients.length === 0);
   const [selectedClientId, setSelectedClientId] = useState(
     clients[0] ? String(clients[0].id) : "",
   );
-  const formRef = useRef<HTMLFormElement>(null);
+  const [actionError, setActionError] = useState("");
+  const initialDate = searchParams.get("date") ?? "";
 
   const selectedClient = useMemo(
     () => clients.find((client) => String(client.id) === selectedClientId),
     [clients, selectedClientId],
   );
+
+  function closeModal() {
+    router.back();
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     const formData = new FormData(event.currentTarget);
@@ -46,15 +59,43 @@ export default function NewAppointmentForm({ appointments, clients }: Props) {
 
     if (conflictMessage && !window.confirm(conflictMessage)) {
       event.preventDefault();
+      return;
     }
+
+    event.preventDefault();
+    setActionError("");
+
+    startTransition(async () => {
+      const result = await createAppointmentAction(formData);
+
+      if (!result?.ok) {
+        setActionError(
+          result?.error ?? "Nie udało się zapisać wizyty. Spróbuj jeszcze raz.",
+        );
+        return;
+      }
+
+      if (presentation === "modal") {
+        closeModal();
+        window.setTimeout(() => {
+          router.refresh();
+        }, 0);
+        return;
+      }
+
+      router.push("/appointments");
+      router.refresh();
+    });
   }
 
   return (
     <form
-      ref={formRef}
-      action={createAppointmentAction}
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-[28px] bg-white p-6 shadow-sm shadow-slate-200"
+      className={`space-y-4 ${
+        presentation === "page"
+          ? "rounded-[28px] bg-white p-6 shadow-sm shadow-slate-200"
+          : ""
+      }`}
     >
       <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
         <input
@@ -153,6 +194,7 @@ export default function NewAppointmentForm({ appointments, clients }: Props) {
             name="date"
             type="date"
             required
+            defaultValue={initialDate}
             className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
           />
         </label>
@@ -190,20 +232,36 @@ export default function NewAppointmentForm({ appointments, clients }: Props) {
         />
       </label>
 
+      {actionError ? (
+        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          {actionError}
+        </div>
+      ) : null}
+
       <div className="flex gap-3 pt-2">
-        <Link
-          href="/appointments"
-          className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          Wróć
-        </Link>
+        {presentation === "page" ? (
+          <Link
+            href="/appointments"
+            className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Wróć
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={closeModal}
+            className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Anuluj
+          </button>
+        )}
 
         <button
           type="submit"
-          disabled={!isNewClient && clients.length === 0}
+          disabled={isPending || (!isNewClient && clients.length === 0)}
           className="flex-1 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
         >
-          Zapisz wizytę
+          {isPending ? "Zapisywanie..." : "Zapisz wizytę"}
         </button>
       </div>
     </form>

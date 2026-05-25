@@ -84,28 +84,3 @@ export async function getServicesByIds(ids: number[]) {
 
   return ((data ?? []) as ServiceItem[]).map(mapService);
 }
-
-export async function createService(service: Omit<ServiceItem, "id">) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("services").insert(service);
-
-  if (error) {
-    throw new Error(`Failed to create service: ${error.message}`);
-  }
-}
-
-export async function updateService(service: ServiceItem) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("services")
-    .update({
-      category: service.category,
-      name: service.name,
-      price: service.price,
-    })
-    .eq("id", service.id);
-
-  if (error) {
-    throw new Error(`Failed to update service: ${error.message}`);
-  }
-}

@@ -4,10 +4,7 @@ import {
   getFinanceSummary,
 } from "../../lib/data/finances";
 import { isSupabaseConfigured } from "../../lib/supabase/env";
-
-function formatPrice(price: number) {
-  return `${price.toLocaleString("pl-PL")} zł`;
-}
+import { formatPrice } from "../../lib/ui/format";
 
 function PeriodCard({ summary }: { summary: FinancePeriodSummary }) {
   return (

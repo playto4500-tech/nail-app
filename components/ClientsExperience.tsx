@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteClientAction, updateClientAction } from "../app/actions/clients";
+import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
+import { useEscapeToClose } from "../lib/hooks/useEscapeToClose";
+import { formatNumericDate, formatPrice } from "../lib/ui/format";
 import type { ClientItem, ClientVisit } from "../lib/data/clients";
 
 type Props = {
@@ -16,18 +19,6 @@ type EditFormState = {
   status: ClientItem["status"];
   notes: string;
 };
-
-function formatPrice(price: number) {
-  return `${price.toLocaleString("pl-PL")} zł`;
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("pl-PL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T12:00:00`));
-}
 
 function getStatusLabel(status: ClientVisit["status"]) {
   if (status === "completed") {
@@ -71,41 +62,6 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
     : [];
   const hasOpenModal = Boolean(selectedClient || editingClient);
 
-  useEffect(() => {
-    if (!hasOpenModal) {
-      document.body.style.overflow = "";
-      return;
-    }
-
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [hasOpenModal]);
-
-  useEffect(() => {
-    if (!hasOpenModal) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (isPending) {
-          return;
-        }
-
-        setSelectedClientId(null);
-        setEditingClientId(null);
-        setEditState(null);
-        setActionError("");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [hasOpenModal, isPending]);
-
   function closeModals() {
     if (isPending) {
       return;
@@ -116,6 +72,13 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
     setEditState(null);
     setActionError("");
   }
+
+  useBodyScrollLock(hasOpenModal);
+  useEscapeToClose({
+    enabled: hasOpenModal,
+    isBlocked: isPending,
+    onClose: closeModals,
+  });
 
   function openHistory(clientId: number) {
     setEditingClientId(null);
@@ -454,7 +417,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">
-                          {formatDate(visit.date)} · {visit.time}
+                          {formatNumericDate(visit.date)} · {visit.time}
                         </p>
                         {visit.serviceName ? (
                           <p className="mt-1 text-sm text-slate-600">{visit.serviceName}</p>

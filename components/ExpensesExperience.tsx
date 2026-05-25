@@ -1,64 +1,23 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createExpenseAction, deleteExpenseAction } from "../app/actions/expenses";
 import type { Expense } from "../lib/data/finances";
+import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
+import { useEscapeToClose } from "../lib/hooks/useEscapeToClose";
+import { formatPrice } from "../lib/ui/format";
+import { getTodayDateKey } from "../lib/utils/date";
 
 type Props = {
   recentExpenses: Expense[];
 };
-
-function formatPrice(price: number) {
-  return `${price.toLocaleString("pl-PL")} zł`;
-}
-
-function getTodayDateKey() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export default function ExpensesExperience({ recentExpenses }: Props) {
   const router = useRouter();
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState("");
-
-  useEffect(() => {
-    if (!isExpenseModalOpen) {
-      document.body.style.overflow = "";
-      return;
-    }
-
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isExpenseModalOpen]);
-
-  useEffect(() => {
-    if (!isExpenseModalOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (isPending) {
-          return;
-        }
-
-        setActionError("");
-        setIsExpenseModalOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isExpenseModalOpen, isPending]);
 
   function openExpenseModal() {
     setActionError("");
@@ -73,6 +32,13 @@ export default function ExpensesExperience({ recentExpenses }: Props) {
     setActionError("");
     setIsExpenseModalOpen(false);
   }
+
+  useBodyScrollLock(isExpenseModalOpen);
+  useEscapeToClose({
+    enabled: isExpenseModalOpen,
+    isBlocked: isPending,
+    onClose: closeExpenseModal,
+  });
 
   async function submitExpense(formData: FormData) {
     startTransition(async () => {

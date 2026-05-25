@@ -1,4 +1,5 @@
 import { createClient } from "../../utils/supabase/server";
+import { getTodayDateKey } from "../utils/date";
 
 export type Expense = {
   id: number;
@@ -104,7 +105,7 @@ function createPeriodSummary(
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const supabase = await createClient();
   const today = new Date();
-  const todayKey = toDateKey(today);
+  const todayKey = getTodayDateKey(today);
   const startOfWeekKey = toDateKey(getStartOfWeek(today));
   const startOfMonthKey = toDateKey(new Date(today.getFullYear(), today.getMonth(), 1));
   const endOfMonthKey = toDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0));

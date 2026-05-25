@@ -1,4 +1,5 @@
 import { createClient } from "../../utils/supabase/server";
+import { normalizeTime } from "../utils/date";
 import type { ClientStatus } from "./clients";
 import { normalizeKnownServiceName } from "./services";
 
@@ -59,10 +60,6 @@ type AppointmentAddonRow = {
         name: string;
       }>;
 };
-
-function normalizeAppointmentTime(time: string) {
-  return time.slice(0, 5);
-}
 
 export async function getAppointments(options?: { includeDeleted?: boolean }) {
   const supabase = await createClient();
@@ -127,7 +124,7 @@ export async function getAppointments(options?: { includeDeleted?: boolean }) {
       clientInstagramHandle: appointment.client_instagram_handle ?? null,
       clientStatus: relatedClient?.status ?? "new",
       date: appointment.appointment_date,
-      time: normalizeAppointmentTime(appointment.appointment_time),
+      time: normalizeTime(appointment.appointment_time),
       serviceId: appointment.service_id,
       serviceName: appointment.service_name
         ? normalizeKnownServiceName(appointment.service_name)
