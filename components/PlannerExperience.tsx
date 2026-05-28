@@ -15,6 +15,7 @@ import {
   formatWeekRangeLabel,
   getSuggestedTimeSlots,
   getWeekdayLabels,
+  isPeanutDay,
   parseDateKey,
   startOfWeek,
   toDateKey,
@@ -53,6 +54,44 @@ function getAppointmentCountBadgeClasses(count: number, isSelected: boolean) {
   }
 
   return isSelected ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-700";
+}
+
+function getDayCardClasses(options: {
+  inCurrentMonth?: boolean;
+  isPeanut: boolean;
+  isSelected: boolean;
+}) {
+  const { inCurrentMonth = true, isPeanut, isSelected } = options;
+
+  if (isSelected && isPeanut) {
+    return "border-emerald-700 bg-emerald-700 text-white shadow-sm shadow-emerald-200";
+  }
+
+  if (isSelected) {
+    return "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300";
+  }
+
+  if (isPeanut && inCurrentMonth) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-950 hover:bg-emerald-100";
+  }
+
+  if (isPeanut && !inCurrentMonth) {
+    return "border-emerald-100 bg-emerald-50/70 text-emerald-700 hover:bg-emerald-50";
+  }
+
+  if (inCurrentMonth) {
+    return "border-slate-200 bg-white text-slate-900 hover:bg-slate-50";
+  }
+
+  return "border-slate-100 bg-white/70 text-slate-400 hover:bg-white";
+}
+
+function getAppointmentBadgeLabel(count: number, dateKey: string) {
+  if (!isPeanutDay(dateKey)) {
+    return String(count);
+  }
+
+  return "🥜";
 }
 
 function getDisplayAppointment(
@@ -268,27 +307,28 @@ export default function PlannerExperience({ appointments, clients, services }: P
                     {week.map((day) => {
                       const dayAppointments = appointmentsByDate[day.dateKey] ?? [];
                       const isSelected = day.dateKey === selectedDateKey;
+                      const isPeanut = isPeanutDay(day.dateKey);
 
                       return (
                         <button
                           key={day.dateKey}
                           type="button"
                           onClick={() => handleDaySelect(day.dateKey)}
-                          className={`relative min-h-[72px] rounded-[22px] border px-2 py-2 text-left transition ${
-                            isSelected
-                              ? "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300"
-                              : day.inCurrentMonth
-                                ? "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-                                : "border-slate-100 bg-white/70 text-slate-400 hover:bg-white"
-                          }`}
+                          className={`relative min-h-[72px] rounded-[22px] border px-2 py-2 text-left transition ${getDayCardClasses(
+                            {
+                              inCurrentMonth: day.inCurrentMonth,
+                              isPeanut,
+                              isSelected,
+                            },
+                          )}`}
                         >
                           <span
-                            className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                            className={`absolute right-2 top-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
                               dayAppointments.length,
                               isSelected,
                             )}`}
                           >
-                            {dayAppointments.length}
+                            {getAppointmentBadgeLabel(dayAppointments.length, day.dateKey)}
                           </span>
 
                           <div className="flex h-full items-end">
@@ -311,17 +351,19 @@ export default function PlannerExperience({ appointments, clients, services }: P
                 {weekDays.map((day) => {
                   const dayAppointments = appointmentsByDate[day.dateKey] ?? [];
                   const isSelected = day.dateKey === selectedDateKey;
+                  const isPeanut = isPeanutDay(day.dateKey);
 
                   return (
                     <button
                       key={day.dateKey}
                       type="button"
                       onClick={() => handleDaySelect(day.dateKey)}
-                      className={`rounded-[24px] border px-2 py-3 text-center transition ${
-                        isSelected
-                          ? "border-slate-900 bg-slate-900 text-white shadow-sm shadow-slate-300"
-                          : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-                      }`}
+                      className={`rounded-[24px] border px-2 py-3 text-center transition ${getDayCardClasses(
+                        {
+                          isPeanut,
+                          isSelected,
+                        },
+                      )}`}
                     >
                       <p className="text-[10px] font-medium uppercase tracking-[0.08em]">
                         {
@@ -338,12 +380,12 @@ export default function PlannerExperience({ appointments, clients, services }: P
                         {day.dayNumber}
                       </p>
                       <span
-                        className={`mt-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
+                        className={`mt-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-semibold ${getAppointmentCountBadgeClasses(
                           dayAppointments.length,
                           isSelected,
                         )}`}
                       >
-                        {dayAppointments.length}
+                        {getAppointmentBadgeLabel(dayAppointments.length, day.dateKey)}
                       </span>
                     </button>
                   );

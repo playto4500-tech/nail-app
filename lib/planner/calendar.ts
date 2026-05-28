@@ -14,9 +14,21 @@ const WEEKDAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"];
 const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 20 * 60;
 const SLOT_INTERVAL_MINUTES = 30;
+const PEANUT_DAY_KEYS = new Set([
+  "2026-06-11",
+  "2026-06-12",
+  "2026-06-13",
+  "2026-06-14",
+  "2026-06-15",
+  "2026-06-16",
+]);
 
 export function getWeekdayLabels() {
   return WEEKDAY_LABELS;
+}
+
+export function isPeanutDay(dateKey: string) {
+  return PEANUT_DAY_KEYS.has(dateKey);
 }
 
 export function parseDateKey(dateKey: string) {
