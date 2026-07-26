@@ -20,6 +20,8 @@ type EditFormState = {
   notes: string;
 };
 
+type ClientSortMode = "alphabetical" | "visitCount";
+
 function getStatusLabel(status: ClientVisit["status"]) {
   if (status === "completed") {
     return "Zakończona";
@@ -44,9 +46,27 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
   const [editState, setEditState] = useState<null | EditFormState>(null);
   const [actionError, setActionError] = useState("");
   const [deletedClientIds, setDeletedClientIds] = useState<number[]>([]);
+  const [sortMode, setSortMode] = useState<ClientSortMode>("alphabetical");
   const visibleClients = useMemo(
     () => clients.filter((client) => !deletedClientIds.includes(client.id)),
     [clients, deletedClientIds],
+  );
+  const sortedVisibleClients = useMemo(
+    () =>
+      [...visibleClients].sort((first, second) => {
+        if (sortMode === "visitCount") {
+          const countDifference =
+            (visitsByClient[second.id]?.length ?? 0) -
+            (visitsByClient[first.id]?.length ?? 0);
+
+          if (countDifference !== 0) {
+            return countDifference;
+          }
+        }
+
+        return first.name.localeCompare(second.name, "pl");
+      }),
+    [sortMode, visibleClients, visitsByClient],
   );
 
   const selectedClient = useMemo(
@@ -167,7 +187,32 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
 
   return (
     <>
-      {visibleClients.map((client) => {
+      <div className="grid grid-cols-2 gap-2 rounded-[24px] border border-slate-200 bg-white p-1 shadow-sm shadow-slate-200">
+        <button
+          type="button"
+          onClick={() => setSortMode("alphabetical")}
+          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+            sortMode === "alphabetical"
+              ? "bg-slate-950 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Alfabetycznie
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortMode("visitCount")}
+          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+            sortMode === "visitCount"
+              ? "bg-slate-950 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Liczba wizyt
+        </button>
+      </div>
+
+      {sortedVisibleClients.map((client) => {
         const visitCount = visitsByClient[client.id]?.length ?? 0;
 
         return (

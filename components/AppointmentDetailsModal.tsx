@@ -28,6 +28,7 @@ import {
   type DisplayAppointmentStatus,
   type ToastMessage,
 } from "../lib/ui/appointments";
+import { getQuarterHourTimeOptions } from "../lib/utils/date";
 
 type Props = {
   appointments: Appointment[];
@@ -88,6 +89,10 @@ export default function AppointmentDetailsModal({
   const [isPending, startTransition] = useTransition();
   const [editState, setEditState] = useState<null | EditFormState>(
     () => (selectedAppointment ? createInitialEditState(selectedAppointment) : null),
+  );
+  const editTimeOptions = useMemo(
+    () => getQuarterHourTimeOptions(editState?.time),
+    [editState?.time],
   );
 
   const serviceOptions = useMemo(
@@ -348,10 +353,8 @@ export default function AppointmentDetailsModal({
 
               <label className="block min-w-0 space-y-2">
                 <span className="text-sm font-medium text-slate-700">Godzina</span>
-                <input
+                <select
                   name="time"
-                  type="time"
-                  step="900"
                   required
                   value={editState.time}
                   onChange={(event) =>
@@ -360,7 +363,13 @@ export default function AppointmentDetailsModal({
                     )
                   }
                   className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
-                />
+                >
+                  {editTimeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 

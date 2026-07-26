@@ -28,6 +28,10 @@ export default function TopBar() {
   const pathname = usePathname();
   const menuToggleRef = useRef<HTMLInputElement>(null);
 
+  if (pathname === "/login") {
+    return null;
+  }
+
   const title = pageTitles[pathname] ?? "Nail Studio Manager";
 
   function isItemActive(href: string) {

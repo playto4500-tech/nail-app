@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 export default function FloatingAddVisitButton() {
   const pathname = usePathname();
 
-  if (pathname === "/planner" || pathname === "/appointments/new") {
+  if (pathname === "/login" || pathname === "/planner" || pathname === "/appointments/new") {
     return null;
   }
 

@@ -13,7 +13,6 @@ import {
   buildWeekDays,
   formatMonthLabel,
   formatWeekRangeLabel,
-  getSuggestedTimeSlots,
   getWeekdayLabels,
   isPeanutDay,
   parseDateKey,
@@ -157,11 +156,6 @@ export default function PlannerExperience({ appointments, clients, services }: P
         first.time.localeCompare(second.time),
       ),
     [appointmentsByDate, selectedDateKey],
-  );
-
-  const suggestedTimes = useMemo(
-    () => getSuggestedTimeSlots(selectedDateKey, selectedDateAppointments),
-    [selectedDateAppointments, selectedDateKey],
   );
 
   const monthGrid = useMemo(
@@ -462,28 +456,6 @@ export default function PlannerExperience({ appointments, clients, services }: P
             </Link>
           )}
 
-          {selectedDateKey >= todayDateKey ? (
-            <div className="mt-5 rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4">
-              <p className="text-sm font-semibold text-slate-900">Sugerowane godziny</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Podstawa pod wolne sloty na bazie zajętych godzin.
-              </p>
-              {suggestedTimes.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {suggestedTimes.map((time) => (
-                    <span
-                      key={time}
-                      className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700"
-                    >
-                      {time}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">Brak wolnych slotów w tym dniu.</p>
-              )}
-            </div>
-          ) : null}
         </section>
       </section>
 

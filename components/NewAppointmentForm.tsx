@@ -10,12 +10,19 @@ import {
   getAppointmentConflictMessage,
   getAppointmentConflicts,
 } from "../lib/ui/appointment-conflicts";
+import { getQuarterHourTimeOptions } from "../lib/utils/date";
 
 type Props = {
   appointments: Appointment[];
   clients: ClientSummary[];
   presentation?: "modal" | "page";
 };
+
+type ClientSortMode = "alphabetical" | "visitCount";
+
+function getClientVisitCount(client: ClientSummary, appointments: Appointment[]) {
+  return appointments.filter((appointment) => appointment.clientId === client.id).length;
+}
 
 export default function NewAppointmentForm({
   appointments,
@@ -29,12 +36,32 @@ export default function NewAppointmentForm({
   const [selectedClientId, setSelectedClientId] = useState(
     clients[0] ? String(clients[0].id) : "",
   );
+  const [clientSortMode, setClientSortMode] =
+    useState<ClientSortMode>("alphabetical");
   const [actionError, setActionError] = useState("");
   const initialDate = searchParams.get("date") ?? "";
+  const timeOptions = useMemo(() => getQuarterHourTimeOptions(), []);
+  const sortedClients = useMemo(
+    () =>
+      [...clients].sort((first, second) => {
+        if (clientSortMode === "visitCount") {
+          const countDifference =
+            getClientVisitCount(second, appointments) -
+            getClientVisitCount(first, appointments);
+
+          if (countDifference !== 0) {
+            return countDifference;
+          }
+        }
+
+        return first.name.localeCompare(second.name, "pl");
+      }),
+    [appointments, clientSortMode, clients],
+  );
 
   const selectedClient = useMemo(
-    () => clients.find((client) => String(client.id) === selectedClientId),
-    [clients, selectedClientId],
+    () => sortedClients.find((client) => String(client.id) === selectedClientId),
+    [selectedClientId, sortedClients],
   );
 
   function closeModal() {
@@ -149,6 +176,31 @@ export default function NewAppointmentForm({
         </>
       ) : (
         <>
+          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setClientSortMode("alphabetical")}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                clientSortMode === "alphabetical"
+                  ? "bg-white text-slate-950 shadow-sm shadow-slate-200"
+                  : "text-slate-500"
+              }`}
+            >
+              Alfabetycznie
+            </button>
+            <button
+              type="button"
+              onClick={() => setClientSortMode("visitCount")}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                clientSortMode === "visitCount"
+                  ? "bg-white text-slate-950 shadow-sm shadow-slate-200"
+                  : "text-slate-500"
+              }`}
+            >
+              Liczba wizyt
+            </button>
+          </div>
+
           <label className="block space-y-2">
             <span className="text-sm font-medium text-slate-700">Klientka</span>
             <select
@@ -162,9 +214,12 @@ export default function NewAppointmentForm({
               {clients.length === 0 ? (
                 <option value="">Brak zapisanych klientek</option>
               ) : (
-                clients.map((client) => (
+                sortedClients.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.name}
+                    {clientSortMode === "visitCount"
+                      ? ` (${getClientVisitCount(client, appointments)})`
+                      : ""}
                   </option>
                 ))
               )}
@@ -201,13 +256,21 @@ export default function NewAppointmentForm({
 
         <label className="block min-w-0 space-y-2">
           <span className="text-sm font-medium text-slate-700">Godzina</span>
-          <input
+          <select
             name="time"
-            type="time"
-            step="900"
             required
+            defaultValue=""
             className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
-          />
+          >
+            <option value="" disabled>
+              Wybierz godzinę
+            </option>
+            {timeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
