@@ -947,17 +947,17 @@ function HorizontalTrendChart({
                       key={point.key}
                       className={`grid items-center ${
                         showExpenses
-                          ? "grid-cols-[2.75rem_3.75rem_minmax(0,0.62fr)_1px_minmax(0,1fr)_3.75rem]"
-                          : "grid-cols-[2.75rem_1px_minmax(0,1fr)_3.75rem]"
+                          ? "grid-cols-[3.5rem_4.25rem_minmax(0,0.72fr)_1px_minmax(0,1.18fr)_4.75rem]"
+                          : "grid-cols-[3.5rem_1px_minmax(0,1fr)_4.75rem]"
                       }`}
                     >
-                      <p className="truncate pr-2 text-xs font-bold text-slate-500">
+                      <p className="pr-2 text-xs font-bold leading-tight text-slate-500">
                         {point.label}
                       </p>
 
                       {showExpenses ? (
                         <>
-                          <p className="pr-2 text-right text-[10px] font-bold leading-none text-rose-700">
+                          <p className="pr-4 text-left text-[10px] font-bold leading-none text-rose-700">
                             {point.expenseValue > 0 ? formatter(point.expenseValue) : ""}
                           </p>
                           <div className="flex h-7 items-center justify-end">
@@ -997,7 +997,7 @@ function HorizontalTrendChart({
                           </div>
                         ) : null}
                       </div>
-                      <p className="pl-2 text-[10px] font-bold leading-none text-emerald-700">
+                      <p className="pl-4 text-right text-[10px] font-bold leading-none text-emerald-700">
                         {positiveTotal > 0 ? formatter(positiveTotal) : ""}
                       </p>
                     </div>
