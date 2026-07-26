@@ -23,48 +23,46 @@ type IncomeRow = {
   appointment_date: string;
   appointment_price: number;
   appointment_tip: null | number;
-  deleted_at: null | string;
 };
 
 type FutureAppointmentRow = {
   appointment_date: string;
-  deleted_at: null | string;
-  status: string;
+  appointment_price: null | number;
+  service_id: null | number;
 };
 
-type IncomeItem = {
+type ServicePriceRow = {
+  id: number;
+  price: number;
+};
+
+export type CompletedAppointmentIncome = {
   date: string;
   amount: number;
   tip: number;
 };
 
-export type FinancePeriodSummary = {
-  label: string;
-  income: number;
-  expenses: number;
-  profit: number;
-  appointmentCount: number;
-  averageAppointmentIncome: number;
-  tipTotal: number;
-  averageTip: number;
-  tippedAppointmentCount: number;
-  tipRate: number;
+export type ExpenseAmountItem = {
+  date: string;
+  amount: number;
 };
 
-export type MonthlyFinanceSummary = FinancePeriodSummary & {
-  monthKey: string;
+export type FinanceProjectionSummary = {
+  label: string;
+  from: string;
+  to: string;
+  earnedIncome: number;
+  projectedIncome: number;
+  totalIncome: number;
 };
 
 export type FinanceSummary = {
-  today: FinancePeriodSummary;
-  week: FinancePeriodSummary;
-  month: FinancePeriodSummary;
-  year: FinancePeriodSummary;
-  months: MonthlyFinanceSummary[];
+  todayKey: string;
+  completedAppointments: CompletedAppointmentIncome[];
+  expenseItems: ExpenseAmountItem[];
   projected: {
-    upcomingAppointmentCount: number;
-    averageIncomeLast30Days: number;
-    estimatedIncome: number;
+    nextWeek: FinanceProjectionSummary;
+    monthEnd: FinanceProjectionSummary;
   };
   recentExpenses: Expense[];
 };
@@ -76,21 +74,18 @@ function toDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
 function getStartOfWeek(date: Date) {
   const start = new Date(date);
   const day = start.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   start.setDate(start.getDate() + diff);
   return start;
-}
-
-function getMonthLabel(monthKey: string) {
-  const [year, month] = monthKey.split("-").map(Number);
-  const label = new Intl.DateTimeFormat("pl-PL", {
-    month: "long",
-  }).format(new Date(year, month - 1, 1));
-
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function sumInRange<T extends { date: string; amount: number }>(
@@ -107,76 +102,60 @@ function sumInRange<T extends { date: string; amount: number }>(
   }, 0);
 }
 
-function createPeriodSummary(
-  label: string,
-  incomes: IncomeItem[],
-  expenses: Array<{ date: string; amount: number }>,
+function estimateFutureIncome(
+  appointments: FutureAppointmentRow[],
+  servicePrices: Map<number, number>,
   from: string,
   to: string,
-): FinancePeriodSummary {
-  const periodIncomes = incomes.filter((item) => item.date >= from && item.date <= to);
-  const income = periodIncomes.reduce((total, item) => total + item.amount, 0);
-  const expenseTotal = sumInRange(expenses, from, to);
-  const appointmentCount = periodIncomes.length;
-  const tipTotal = periodIncomes.reduce((total, item) => total + item.tip, 0);
-  const tippedAppointmentCount = periodIncomes.filter((item) => item.tip > 0).length;
+) {
+  return appointments.reduce((total, appointment) => {
+    if (appointment.appointment_date < from || appointment.appointment_date > to) {
+      return total;
+    }
 
-  return {
-    label,
-    income,
-    expenses: expenseTotal,
-    profit: income - expenseTotal,
-    appointmentCount,
-    averageAppointmentIncome:
-      appointmentCount > 0 ? Math.round(income / appointmentCount) : 0,
-    tipTotal,
-    averageTip:
-      tippedAppointmentCount > 0 ? Math.round(tipTotal / tippedAppointmentCount) : 0,
-    tippedAppointmentCount,
-    tipRate:
-      appointmentCount > 0
-        ? Math.round((tippedAppointmentCount / appointmentCount) * 100)
-        : 0,
-  };
+    if (typeof appointment.appointment_price === "number") {
+      return total + appointment.appointment_price;
+    }
+
+    if (appointment.service_id) {
+      return total + (servicePrices.get(appointment.service_id) ?? 0);
+    }
+
+    return total;
+  }, 0);
 }
 
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const supabase = await createClient();
   const today = new Date();
   const todayKey = getTodayDateKey(today);
-  const startOfWeekKey = toDateKey(getStartOfWeek(today));
-  const startOfMonthKey = toDateKey(new Date(today.getFullYear(), today.getMonth(), 1));
-  const endOfMonthKey = toDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0));
-  const startOfYearKey = toDateKey(new Date(today.getFullYear(), 0, 1));
-  const endOfYearKey = toDateKey(new Date(today.getFullYear(), 11, 31));
-  const thirtyDaysAgoKey = toDateKey(
-    new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30),
-  );
-  const queryStartKey =
-    thirtyDaysAgoKey < startOfYearKey ? thirtyDaysAgoKey : startOfYearKey;
+  const startOfWeek = getStartOfWeek(today);
+  const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const startOfNextWeek = addDays(startOfWeek, 7);
+  const endOfNextWeek = addDays(startOfNextWeek, 6);
 
-  const [incomeResponse, expenseResponse, futureAppointmentsResponse] = await Promise.all([
-    supabase
-      .from("appointments")
-      .select("appointment_date, appointment_price, appointment_tip, deleted_at")
-      .eq("status", "completed")
-      .is("deleted_at", null)
-      .gte("appointment_date", queryStartKey)
-      .lte("appointment_date", endOfYearKey),
-    supabase
-      .from("expenses")
-      .select("id, name, amount, source, expense_date, created_at")
-      .gte("expense_date", queryStartKey)
-      .lte("expense_date", endOfYearKey)
-      .order("expense_date", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("appointments")
-      .select("appointment_date, status, deleted_at")
-      .in("status", ["confirmed", "scheduled"])
-      .is("deleted_at", null)
-      .gte("appointment_date", todayKey),
-  ]);
+  const [incomeResponse, expenseResponse, futureAppointmentsResponse, servicesResponse] =
+    await Promise.all([
+      supabase
+        .from("appointments")
+        .select("appointment_date, appointment_price, appointment_tip")
+        .eq("status", "completed")
+        .is("deleted_at", null)
+        .order("appointment_date", { ascending: true }),
+      supabase
+        .from("expenses")
+        .select("id, name, amount, source, expense_date, created_at")
+        .order("expense_date", { ascending: false })
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("appointments")
+        .select("appointment_date, appointment_price, service_id")
+        .in("status", ["confirmed", "scheduled"])
+        .is("deleted_at", null)
+        .gte("appointment_date", todayKey),
+      supabase.from("services").select("id, price"),
+    ]);
 
   if (incomeResponse.error) {
     throw new Error(`Failed to load income summary: ${incomeResponse.error.message}`);
@@ -192,12 +171,16 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     );
   }
 
-  const incomes = ((incomeResponse.data ?? []) as IncomeRow[]).map((item) => ({
+  if (servicesResponse.error) {
+    throw new Error(`Failed to load services for forecast: ${servicesResponse.error.message}`);
+  }
+
+  const completedAppointments = ((incomeResponse.data ?? []) as IncomeRow[]).map((item) => ({
     date: item.appointment_date,
     amount: item.appointment_price + (item.appointment_tip ?? 0),
     tip: item.appointment_tip ?? 0,
   }));
-  const expenses = ((expenseResponse.data ?? []) as ExpenseRow[]).map((item) => ({
+  const recentExpenses = ((expenseResponse.data ?? []) as ExpenseRow[]).map((item) => ({
     id: item.id,
     name: item.name,
     amount: item.amount,
@@ -205,70 +188,60 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     date: item.expense_date,
     createdAt: item.created_at,
   }));
-  const expenseAmounts = expenses.map((expense) => ({
+  const expenseItems = recentExpenses.map((expense) => ({
     date: expense.date,
     amount: expense.amount,
   }));
-  const recentIncomes = incomes.filter((income) => income.date >= thirtyDaysAgoKey);
-  const averageIncomeLast30Days =
-    recentIncomes.length > 0
-      ? Math.round(
-          recentIncomes.reduce((total, income) => total + income.amount, 0) /
-            recentIncomes.length,
-        )
-      : 0;
-  const upcomingAppointmentCount = (
-    (futureAppointmentsResponse.data ?? []) as FutureAppointmentRow[]
-  ).length;
+  const futureAppointments = (futureAppointmentsResponse.data ?? []) as FutureAppointmentRow[];
+  const servicePrices = new Map(
+    ((servicesResponse.data ?? []) as ServicePriceRow[]).map((service) => [
+      service.id,
+      service.price,
+    ]),
+  );
 
-  const months = Array.from({ length: today.getMonth() + 1 }, (_, index) => {
-    const monthDate = new Date(today.getFullYear(), index, 1);
-    const monthKey = `${monthDate.getFullYear()}-${String(index + 1).padStart(2, "0")}`;
-    const from = toDateKey(monthDate);
-    const to = toDateKey(new Date(today.getFullYear(), index + 1, 0));
+  const currentMonthFrom = toDateKey(startOfCurrentMonth);
+  const currentMonthTo = toDateKey(endOfCurrentMonth);
+  const nextWeekFrom = toDateKey(startOfNextWeek);
+  const nextWeekTo = toDateKey(endOfNextWeek);
 
-    return {
-      monthKey,
-      ...createPeriodSummary(
-        getMonthLabel(monthKey),
-        incomes,
-        expenseAmounts,
-        from,
-        to,
-      ),
-    };
-  }).reverse();
+  const earnedCurrentMonth = sumInRange(completedAppointments, currentMonthFrom, todayKey);
+  const projectedCurrentMonth = estimateFutureIncome(
+    futureAppointments,
+    servicePrices,
+    todayKey,
+    currentMonthTo,
+  );
+  const projectedNextWeek = estimateFutureIncome(
+    futureAppointments,
+    servicePrices,
+    nextWeekFrom,
+    nextWeekTo,
+  );
 
   return {
-    today: createPeriodSummary("Dzisiaj", incomes, expenseAmounts, todayKey, todayKey),
-    week: createPeriodSummary(
-      "Ten tydzień",
-      incomes,
-      expenseAmounts,
-      startOfWeekKey,
-      todayKey,
-    ),
-    month: createPeriodSummary(
-      "Ten miesiąc",
-      incomes,
-      expenseAmounts,
-      startOfMonthKey,
-      endOfMonthKey,
-    ),
-    year: createPeriodSummary(
-      "Ten rok",
-      incomes,
-      expenseAmounts,
-      startOfYearKey,
-      endOfYearKey,
-    ),
-    months,
+    todayKey,
+    completedAppointments,
+    expenseItems,
     projected: {
-      upcomingAppointmentCount,
-      averageIncomeLast30Days,
-      estimatedIncome: upcomingAppointmentCount * averageIncomeLast30Days,
+      nextWeek: {
+        label: "Następny tydzień",
+        from: nextWeekFrom,
+        to: nextWeekTo,
+        earnedIncome: 0,
+        projectedIncome: projectedNextWeek,
+        totalIncome: projectedNextWeek,
+      },
+      monthEnd: {
+        label: "Do końca miesiąca",
+        from: currentMonthFrom,
+        to: currentMonthTo,
+        earnedIncome: earnedCurrentMonth,
+        projectedIncome: projectedCurrentMonth,
+        totalIncome: earnedCurrentMonth + projectedCurrentMonth,
+      },
     },
-    recentExpenses: expenses.slice(0, 6),
+    recentExpenses: recentExpenses.slice(0, 6),
   };
 }
 
