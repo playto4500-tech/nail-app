@@ -310,7 +310,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
               className="block w-full rounded-[24px] p-4 pr-16 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-lg font-semibold text-slate-900">{client.name}</p>
                   {client.instagramHandle ? (
                     <p className="mt-1 text-sm text-slate-500">
@@ -324,7 +324,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                 </div>
 
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${getClientClassificationClasses(client.classification)}`}
+                  className={`ml-auto shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${getClientClassificationClasses(client.classification)}`}
                 >
                   {getClientClassificationLabel(client.classification)}
                 </span>
