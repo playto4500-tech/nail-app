@@ -6,6 +6,7 @@ import { deleteClientAction, updateClientAction } from "../app/actions/clients";
 import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
 import { useEscapeToClose } from "../lib/hooks/useEscapeToClose";
 import { formatNumericDate, formatPrice } from "../lib/ui/format";
+import { getTodayDateKey } from "../lib/utils/date";
 import type { ClientItem, ClientVisit } from "../lib/data/clients";
 import {
   getClientClassificationClasses,
@@ -24,7 +25,7 @@ type EditFormState = {
   notes: string;
 };
 
-type ClientSortMode = "alphabetical" | "visitCount";
+type ClientSortMode = "alphabetical" | "visitCount" | "oldestLastVisit";
 
 function getStatusLabel(status: ClientVisit["status"]) {
   if (status === "completed") {
@@ -42,6 +43,40 @@ function getStatusLabel(status: ClientVisit["status"]) {
   return "Zaplanowana";
 }
 
+function getDaysBetweenDateKeys(fromDateKey: string, toDateKey: string) {
+  const fromDate = new Date(`${fromDateKey}T12:00:00`);
+  const toDate = new Date(`${toDateKey}T12:00:00`);
+  const dayInMs = 1000 * 60 * 60 * 24;
+
+  return Math.max(0, Math.round((toDate.getTime() - fromDate.getTime()) / dayInMs));
+}
+
+function formatLastVisitLabel(daysAgo: null | number) {
+  if (daysAgo === null) {
+    return "Ostatnia wizyta: brak historii";
+  }
+
+  if (daysAgo === 0) {
+    return "Ostatnia wizyta: dzisiaj";
+  }
+
+  if (daysAgo === 1) {
+    return "Ostatnia wizyta: 1 dzień temu";
+  }
+
+  return `Ostatnia wizyta: ${daysAgo} dni temu`;
+}
+
+function getLatestVisitDate(visits: ClientVisit[]) {
+  return visits.reduce<null | string>((latestDate, visit) => {
+    if (!latestDate || visit.date > latestDate) {
+      return visit.date;
+    }
+
+    return latestDate;
+  }, null);
+}
+
 export default function ClientsExperience({ clients, visitsByClient }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -51,6 +86,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
   const [actionError, setActionError] = useState("");
   const [deletedClientIds, setDeletedClientIds] = useState<number[]>([]);
   const [sortMode, setSortMode] = useState<ClientSortMode>("alphabetical");
+  const todayDateKey = useMemo(() => getTodayDateKey(), []);
   const visibleClients = useMemo(
     () => clients.filter((client) => !deletedClientIds.includes(client.id)),
     [clients, deletedClientIds],
@@ -58,6 +94,34 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
   const sortedVisibleClients = useMemo(
     () =>
       [...visibleClients].sort((first, second) => {
+        if (sortMode === "oldestLastVisit") {
+          const firstLastVisitDate = getLatestVisitDate(
+            visitsByClient[first.id] ?? [],
+          );
+          const secondLastVisitDate = getLatestVisitDate(
+            visitsByClient[second.id] ?? [],
+          );
+
+          if (!firstLastVisitDate && !secondLastVisitDate) {
+            return first.name.localeCompare(second.name, "pl");
+          }
+
+          if (!firstLastVisitDate) {
+            return 1;
+          }
+
+          if (!secondLastVisitDate) {
+            return -1;
+          }
+
+          const dateDifference =
+            firstLastVisitDate.localeCompare(secondLastVisitDate);
+
+          if (dateDifference !== 0) {
+            return dateDifference;
+          }
+        }
+
         if (sortMode === "visitCount") {
           const countDifference =
             (visitsByClient[second.id]?.length ?? 0) -
@@ -191,7 +255,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 rounded-[24px] border border-slate-200 bg-white p-1 shadow-sm shadow-slate-200">
+      <div className="grid grid-cols-3 gap-2 rounded-[24px] border border-slate-200 bg-white p-1 shadow-sm shadow-slate-200">
         <button
           type="button"
           onClick={() => setSortMode("alphabetical")}
@@ -214,10 +278,26 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
         >
           Liczba wizyt
         </button>
+        <button
+          type="button"
+          onClick={() => setSortMode("oldestLastVisit")}
+          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+            sortMode === "oldestLastVisit"
+              ? "bg-slate-950 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Najdawniej
+        </button>
       </div>
 
       {sortedVisibleClients.map((client) => {
-        const visitCount = visitsByClient[client.id]?.length ?? 0;
+        const clientVisits = visitsByClient[client.id] ?? [];
+        const visitCount = clientVisits.length;
+        const lastVisitDate = getLatestVisitDate(clientVisits);
+        const lastVisitDaysAgo = lastVisitDate
+          ? getDaysBetweenDateKeys(lastVisitDate, todayDateKey)
+          : null;
 
         return (
           <article
@@ -257,6 +337,9 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
               <p className="mt-4 text-sm font-medium text-slate-500">
                 Poprzednie wizyty:{" "}
                 <span className="text-slate-900">{visitCount}</span>
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-400">
+                {formatLastVisitLabel(lastVisitDaysAgo)}
               </p>
             </button>
 
