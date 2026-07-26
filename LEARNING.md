@@ -25,6 +25,8 @@
 - `@supabase/ssr` daje osobne klienty dla przeglądarki i serwera oraz integrację z cookies.
 - Dobra struktura bazy zmniejsza liczbę późniejszych migracji, nawet jeśli część tabel nie ma jeszcze gotowego UI.
 - Mniej zapytań do bazy i lżejsze `select` zwykle dają większą poprawę płynności niż samo dodanie spinnera.
+- Modal sterowany stanem w komponencie klienta pozwala pokazać szczegóły i akcje bez przechodzenia na osobną stronę.
+- Jeśli cennik ma być łatwy w utrzymaniu, każda pozycja powinna dać się poprawić bezpośrednio w swojej karcie, a nie tylko dodawać nowe rekordy.
 
 ## Files changed
 - `LEARNING.md` — zaktualizowałem notatkę o nowym kroku.
@@ -67,6 +69,8 @@
 - `supabase/schema.sql` — rozbudowałem schema o `clients`, `appointment_addons` i `inventory_items`.
 - `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` i `app/layout.tsx` — dodałem konfigurację web app pod iPhone i ikonę do ekranu głównego.
 - `lib/data/appointments.ts`, `lib/data/clients.ts`, `lib/data/services.ts`, `app/appointments/page.tsx`, `app/appointments/new/page.tsx` i `app/loading.tsx` — uprościłem zapytania, dodałem streaming i stany ładowania pod płynniejsze przejścia.
+- `components/AppointmentsExperience.tsx`, `app/actions/appointments.ts`, `lib/data/appointments.ts` i `supabase/002_enable_appointment_updates_and_deletes.sql` — dodałem modal szczegółów wizyty, edycję, anulowanie i usuwanie.
+- `app/services/page.tsx`, `app/actions/services.ts`, `lib/data/services.ts` i `supabase/003_update_service_catalog.sql` — zaktualizowałem cennik i dodałem edycję każdej pozycji w zakładce usług.
 
 ## Code patterns learned
 - `app/clients/page.tsx`, `app/services/page.tsx`, `app/money/page.tsx` to nowe trasy.
@@ -101,6 +105,11 @@
 - Jeśli ekran potrzebuje tylko części danych, lepiej zrobić lżejszy query helper niż pobierać cały rekord z każdą kolumną.
 - `Suspense` pozwala pokazać szkielet strony od razu, zamiast trzymać użytkownika na pustym ekranie do końca ładowania danych.
 - Checkboxy z tą samą nazwą w formularzu mogą wysłać wiele wartości przez `FormData.getAll(...)`, co dobrze pasuje do listy dodatków.
+- Gdy pole ma mieć stały prefiks, np. `@` w Instagram handle, wygodniej zrobić go jako osobny element UI niż pozwalać edytować cały znak w inpucie.
+- Jedna karta może działać jak przycisk otwierający modal, a sam modal może przełączać się między trybem podglądu i edycji bez zmiany trasy.
+- Server Action nadaje się także do prostych formularzy edycji wpisanych bezpośrednio w listę elementów, np. w cenniku usług.
+- Gdy element listy ma zachowywać się bardziej jak “rekord w aplikacji” niż zwykły formularz, modal edycji daje czytelniejszy i spokojniejszy UX niż edycja inline.
+- Gdy dane w bazie są już zabrudzone testowymi wpisami, warto mieć osobną migrację czyszczącą, zamiast próbować ukrywać problem tylko w UI.
 
 ## Mistakes or bugs encountered
 - Przycisk menu nie otwierał panelu poprawnie w pierwszej wersji. Zmieniłem implementację na prosty CSSowy checkbox i linki, żeby menu działało nawet bez problemów z JavaScriptem.

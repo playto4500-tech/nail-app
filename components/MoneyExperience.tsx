@@ -170,6 +170,49 @@ function countInRange<T extends { date: string }>(items: T[], from: string, to: 
   return items.filter((item) => item.date >= from && item.date <= to).length;
 }
 
+function getLatestMonthDate(
+  todayKey: string,
+  plannedAppointments: PlannedAppointmentIncome[],
+  includeUnrealized: boolean,
+) {
+  const today = parseDateKey(todayKey);
+
+  if (!includeUnrealized || plannedAppointments.length === 0) {
+    return new Date(today.getFullYear(), today.getMonth(), 1, 12);
+  }
+
+  return plannedAppointments.reduce(
+    (latestDate, appointment) => {
+      const appointmentDate = parseDateKey(appointment.date);
+
+      if (appointmentDate > latestDate) {
+        return new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1, 12);
+      }
+
+      return latestDate;
+    },
+    new Date(today.getFullYear(), today.getMonth(), 1, 12),
+  );
+}
+
+function getLatestWeekStartDate(
+  todayKey: string,
+  plannedAppointments: PlannedAppointmentIncome[],
+  includeUnrealized: boolean,
+) {
+  const currentWeekStart = getStartOfWeek(parseDateKey(todayKey));
+
+  if (!includeUnrealized || plannedAppointments.length === 0) {
+    return currentWeekStart;
+  }
+
+  return plannedAppointments.reduce((latestWeekStart, appointment) => {
+    const appointmentWeekStart = getStartOfWeek(parseDateKey(appointment.date));
+
+    return appointmentWeekStart > latestWeekStart ? appointmentWeekStart : latestWeekStart;
+  }, currentWeekStart);
+}
+
 function createPeriodSummary(
   title: string,
   dateLabel: string,
@@ -273,11 +316,16 @@ function buildMonthlyNetTrend(
   expenses: ExpenseAmountItem[],
   plannedAppointments: PlannedAppointmentIncome[],
   averageIncomeLastMonth: number,
+  includeUnrealized: boolean,
 ) {
-  const today = parseDateKey(todayKey);
+  const latestMonthDate = getLatestMonthDate(
+    todayKey,
+    plannedAppointments,
+    includeUnrealized,
+  );
 
   return Array.from({ length: 12 }, (_, index) => {
-    const monthDate = addMonths(new Date(today.getFullYear(), today.getMonth(), 1, 12), index - 11);
+    const monthDate = addMonths(latestMonthDate, index - 11);
     const from = toDateKey(monthDate);
     const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
@@ -299,12 +347,17 @@ function buildVisitsTrend(
   appointments: CompletedAppointmentIncome[],
   plannedAppointments: PlannedAppointmentIncome[],
   averageIncomeLastMonth: number,
+  includeUnrealized: boolean,
 ) {
-  const today = parseDateKey(todayKey);
-
   if (mode === "month") {
+    const latestMonthDate = getLatestMonthDate(
+      todayKey,
+      plannedAppointments,
+      includeUnrealized,
+    );
+
     return Array.from({ length: 12 }, (_, index) => {
-      const monthDate = addMonths(new Date(today.getFullYear(), today.getMonth(), 1, 12), index - 11);
+      const monthDate = addMonths(latestMonthDate, index - 11);
       const from = toDateKey(monthDate);
       const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
       const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
@@ -321,8 +374,14 @@ function buildVisitsTrend(
     });
   }
 
+  const latestWeekStartDate = getLatestWeekStartDate(
+    todayKey,
+    plannedAppointments,
+    includeUnrealized,
+  );
+
   return Array.from({ length: 12 }, (_, index) => {
-    const startOfWeek = addDays(getStartOfWeek(today), (index - 11) * 7);
+    const startOfWeek = addDays(latestWeekStartDate, (index - 11) * 7);
     const endOfWeek = addDays(startOfWeek, 6);
     const from = toDateKey(startOfWeek);
     const to = toDateKey(endOfWeek);
@@ -591,15 +650,17 @@ function TrendRows({
 function ShowUnrealizedButton({
   showUnrealized,
   onClick,
+  className = "",
 }: {
   showUnrealized: boolean;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
+      className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${className} ${
         showUnrealized
           ? "bg-slate-950 text-white"
           : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
@@ -631,11 +692,12 @@ function TrendBars({
 }) {
   return (
     <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-semibold text-slate-900">{title}</p>
         <ShowUnrealizedButton
           showUnrealized={showUnrealized}
           onClick={onToggleUnrealized}
+          className="shrink-0"
         />
       </div>
       <TrendRows
@@ -670,6 +732,7 @@ export default function MoneyExperience({ summary }: Props) {
     summary.expenseItems,
     summary.plannedAppointments,
     summary.projected.averageIncomeLastMonth,
+    showUnrealizedNet,
   );
   const visitsTrend = buildVisitsTrend(
     summary.todayKey,
@@ -677,6 +740,7 @@ export default function MoneyExperience({ summary }: Props) {
     summary.completedAppointments,
     summary.plannedAppointments,
     summary.projected.averageIncomeLastMonth,
+    showUnrealizedVisits,
   );
 
   return (
@@ -742,40 +806,34 @@ export default function MoneyExperience({ summary }: Props) {
       />
 
       <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-semibold text-slate-900">Wizyty</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <ShowUnrealizedButton
-              showUnrealized={showUnrealizedVisits}
-              onClick={() =>
-                setShowUnrealizedVisits((currentValue) => !currentValue)
-              }
-            />
-            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setVisitsTrendMode("month")}
-                className={`rounded-xl px-3 py-2 transition ${
-                  visitsTrendMode === "month"
-                    ? "bg-slate-950 text-white"
-                    : "text-slate-600"
-                }`}
-              >
-                Miesiące
-              </button>
-              <button
-                type="button"
-                onClick={() => setVisitsTrendMode("week")}
-                className={`rounded-xl px-3 py-2 transition ${
-                  visitsTrendMode === "week"
-                    ? "bg-slate-950 text-white"
-                    : "text-slate-600"
-                }`}
-              >
-                Tygodnie
-              </button>
-            </div>
-          </div>
+          <ShowUnrealizedButton
+            showUnrealized={showUnrealizedVisits}
+            onClick={() => setShowUnrealizedVisits((currentValue) => !currentValue)}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setVisitsTrendMode("month")}
+            className={`rounded-xl px-3 py-2 transition ${
+              visitsTrendMode === "month" ? "bg-slate-950 text-white" : "text-slate-600"
+            }`}
+          >
+            Miesiące
+          </button>
+          <button
+            type="button"
+            onClick={() => setVisitsTrendMode("week")}
+            className={`rounded-xl px-3 py-2 transition ${
+              visitsTrendMode === "week" ? "bg-slate-950 text-white" : "text-slate-600"
+            }`}
+          >
+            Tygodnie
+          </button>
         </div>
 
         <TrendRows
