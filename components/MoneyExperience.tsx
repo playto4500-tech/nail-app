@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import ExpensesExperience from "./ExpensesExperience";
 import type {
   CompletedAppointmentIncome,
@@ -34,6 +34,7 @@ type TrendPoint = {
   key: string;
   label: string;
   value: number;
+  expenseValue: number;
   unrealizedValue: number;
 };
 
@@ -212,6 +213,60 @@ function getLatestWeekStartDate(
   }, currentWeekStart);
 }
 
+function getEarliestDateKey(
+  fallbackDateKey: string,
+  dateGroups: Array<Array<{ date: string }>>,
+) {
+  return dateGroups.reduce((earliestDateKey, items) => {
+    const groupEarliestDateKey = items.reduce((currentEarliest, item) => {
+      if (!currentEarliest || item.date < currentEarliest) {
+        return item.date;
+      }
+
+      return currentEarliest;
+    }, "");
+
+    if (!groupEarliestDateKey) {
+      return earliestDateKey;
+    }
+
+    return groupEarliestDateKey < earliestDateKey ? groupEarliestDateKey : earliestDateKey;
+  }, fallbackDateKey);
+}
+
+function getStartMonthForTrend(
+  todayKey: string,
+  latestMonthDate: Date,
+  dateGroups: Array<Array<{ date: string }>>,
+) {
+  const earliestDate = parseDateKey(getEarliestDateKey(todayKey, dateGroups));
+  const earliestMonthDate = new Date(
+    earliestDate.getFullYear(),
+    earliestDate.getMonth(),
+    1,
+    12,
+  );
+  const minimumVisibleStartDate = addMonths(latestMonthDate, -9);
+
+  return earliestMonthDate < minimumVisibleStartDate
+    ? earliestMonthDate
+    : minimumVisibleStartDate;
+}
+
+function getStartWeekForTrend(
+  todayKey: string,
+  latestWeekStartDate: Date,
+  dateGroups: Array<Array<{ date: string }>>,
+) {
+  const earliestDate = parseDateKey(getEarliestDateKey(todayKey, dateGroups));
+  const earliestWeekStartDate = getStartOfWeek(earliestDate);
+  const minimumVisibleStartDate = addDays(latestWeekStartDate, -63);
+
+  return earliestWeekStartDate < minimumVisibleStartDate
+    ? earliestWeekStartDate
+    : minimumVisibleStartDate;
+}
+
 function createPeriodSummary(
   title: string,
   dateLabel: string,
@@ -324,9 +379,19 @@ function buildNetTrend(
       plannedAppointments,
       includeUnrealized,
     );
+    const startWeekDate = getStartWeekForTrend(todayKey, latestWeekStartDate, [
+      incomes,
+      expenses,
+      includeUnrealized ? plannedAppointments : [],
+    ]);
+    const pointCount =
+      Math.round(
+        (latestWeekStartDate.getTime() - startWeekDate.getTime()) /
+          (1000 * 60 * 60 * 24 * 7),
+      ) + 1;
 
-    return Array.from({ length: 10 }, (_, index) => {
-      const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
+    return Array.from({ length: pointCount }, (_, index) => {
+      const startOfWeek = addDays(startWeekDate, index * 7);
       const endOfWeek = addDays(startOfWeek, 6);
       const from = toDateKey(startOfWeek);
       const to = toDateKey(endOfWeek);
@@ -340,7 +405,8 @@ function buildNetTrend(
           day: "2-digit",
           month: "2-digit",
         }).format(startOfWeek),
-        value: income - expenseTotal,
+        value: Math.max(0, income - expenseTotal),
+        expenseValue: expenseTotal,
         unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
       };
     });
@@ -351,9 +417,19 @@ function buildNetTrend(
     plannedAppointments,
     includeUnrealized,
   );
+  const startMonthDate = getStartMonthForTrend(todayKey, latestMonthDate, [
+    incomes,
+    expenses,
+    includeUnrealized ? plannedAppointments : [],
+  ]);
+  const pointCount =
+    (latestMonthDate.getFullYear() - startMonthDate.getFullYear()) * 12 +
+    latestMonthDate.getMonth() -
+    startMonthDate.getMonth() +
+    1;
 
-  return Array.from({ length: 10 }, (_, index) => {
-    const monthDate = addMonths(latestMonthDate, index - 9);
+  return Array.from({ length: pointCount }, (_, index) => {
+    const monthDate = addMonths(startMonthDate, index);
     const from = toDateKey(monthDate);
     const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
@@ -363,7 +439,8 @@ function buildNetTrend(
     return {
       key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
       label: getMonthShortLabel(monthDate),
-      value: income - expenseTotal,
+      value: Math.max(0, income - expenseTotal),
+      expenseValue: expenseTotal,
       unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
     };
   });
@@ -382,9 +459,18 @@ function buildVisitsTrend(
       plannedAppointments,
       includeUnrealized,
     );
+    const startMonthDate = getStartMonthForTrend(todayKey, latestMonthDate, [
+      appointments,
+      includeUnrealized ? plannedAppointments : [],
+    ]);
+    const pointCount =
+      (latestMonthDate.getFullYear() - startMonthDate.getFullYear()) * 12 +
+      latestMonthDate.getMonth() -
+      startMonthDate.getMonth() +
+      1;
 
-    return Array.from({ length: 10 }, (_, index) => {
-      const monthDate = addMonths(latestMonthDate, index - 9);
+    return Array.from({ length: pointCount }, (_, index) => {
+      const monthDate = addMonths(startMonthDate, index);
       const from = toDateKey(monthDate);
       const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
       const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
@@ -393,6 +479,7 @@ function buildVisitsTrend(
         key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
         label: getMonthShortLabel(monthDate),
         value: countInRange(appointments, from, to),
+        expenseValue: 0,
         unrealizedValue: unrealizedAppointmentCount,
       };
     });
@@ -403,9 +490,18 @@ function buildVisitsTrend(
     plannedAppointments,
     includeUnrealized,
   );
+  const startWeekDate = getStartWeekForTrend(todayKey, latestWeekStartDate, [
+    appointments,
+    includeUnrealized ? plannedAppointments : [],
+  ]);
+  const pointCount =
+    Math.round(
+      (latestWeekStartDate.getTime() - startWeekDate.getTime()) /
+        (1000 * 60 * 60 * 24 * 7),
+    ) + 1;
 
-  return Array.from({ length: 10 }, (_, index) => {
-    const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
+  return Array.from({ length: pointCount }, (_, index) => {
+    const startOfWeek = addDays(startWeekDate, index * 7);
     const endOfWeek = addDays(startOfWeek, 6);
     const from = toDateKey(startOfWeek);
     const to = toDateKey(endOfWeek);
@@ -418,6 +514,7 @@ function buildVisitsTrend(
         month: "2-digit",
       }).format(startOfWeek),
       value: countInRange(appointments, from, to),
+      expenseValue: 0,
       unrealizedValue: unrealizedAppointmentCount,
     };
   });
@@ -586,83 +683,6 @@ function ProjectedEarningsCard({ projected }: { projected: FinanceSummary["proje
   );
 }
 
-function TrendRows({
-  points,
-  formatter,
-  showUnrealized,
-  primaryColorClass,
-  secondaryColorClass,
-  negativeColorClass,
-}: {
-  points: TrendPoint[];
-  formatter: (value: number) => string;
-  showUnrealized: boolean;
-  primaryColorClass: string;
-  secondaryColorClass: string;
-  negativeColorClass?: string;
-}) {
-  const maxValue = Math.max(
-    1,
-    ...points.map((point) =>
-      Math.abs(point.value) + (showUnrealized ? Math.abs(point.unrealizedValue) : 0),
-    ),
-  );
-
-  return (
-    <div className="space-y-3">
-      {points.map((point) => {
-        const totalValue = point.value + (showUnrealized ? point.unrealizedValue : 0);
-        const primaryWidth =
-          point.value === 0 ? 0 : Math.max(6, (Math.abs(point.value) / maxValue) * 100);
-        const secondaryWidth =
-          showUnrealized && point.unrealizedValue > 0
-            ? Math.max(6, (Math.abs(point.unrealizedValue) / maxValue) * 100)
-            : 0;
-        const primaryClassName =
-          point.value >= 0 ? primaryColorClass : negativeColorClass ?? primaryColorClass;
-
-        return (
-          <div key={point.key} className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-slate-700">{point.label}</p>
-              <p
-                className={`text-xs font-semibold ${
-                  totalValue >= 0 ? "text-slate-900" : "text-rose-700"
-                }`}
-              >
-                {formatter(totalValue)}
-              </p>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-              <div className="flex h-full">
-                {point.value !== 0 ? (
-                  <div
-                    className={`h-full ${showUnrealized ? "rounded-l-full" : "rounded-full"} ${primaryClassName}`}
-                    style={{ width: `${primaryWidth}%` }}
-                  />
-                ) : null}
-                {showUnrealized && point.unrealizedValue > 0 ? (
-                  <div
-                    className={`h-full ${
-                      point.value !== 0 ? "rounded-r-full" : "rounded-full"
-                    } ${secondaryColorClass}`}
-                    style={{ width: `${secondaryWidth}%` }}
-                  />
-                ) : null}
-              </div>
-            </div>
-            {showUnrealized && point.unrealizedValue > 0 ? (
-              <p className="text-xs text-slate-500">
-                Niezrealizowane: {formatter(point.unrealizedValue)}
-              </p>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function ShowUnrealizedButton({
   showUnrealized,
   onClick,
@@ -687,15 +707,124 @@ function ShowUnrealizedButton({
   );
 }
 
+function getTrendPages(points: TrendPoint[]) {
+  const pages: TrendPoint[][] = [];
+
+  for (let endIndex = points.length; endIndex > 0; endIndex -= 10) {
+    pages.push(points.slice(Math.max(0, endIndex - 10), endIndex));
+  }
+
+  return pages.length > 0 ? pages : [[]];
+}
+
+function VerticalTrendChart({
+  points,
+  formatter,
+  showUnrealized,
+  showExpenses,
+}: {
+  points: TrendPoint[];
+  formatter: (value: number) => string;
+  showUnrealized: boolean;
+  showExpenses: boolean;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const pages = getTrendPages(points);
+
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({ left: 0 });
+  }, [points]);
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="-mx-2 overflow-x-auto overscroll-x-contain px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      <div className="flex snap-x snap-mandatory gap-3">
+        {pages.map((page, pageIndex) => {
+          const maxValue = Math.max(
+            1,
+            ...page.map((point) =>
+              Math.max(
+                point.value + (showUnrealized ? point.unrealizedValue : 0),
+                showExpenses ? point.expenseValue : 0,
+              ),
+            ),
+          );
+
+          return (
+            <div
+              key={`${pageIndex}-${page[0]?.key ?? "empty"}`}
+              className="min-w-full snap-start rounded-[20px] border border-slate-100 bg-slate-50 p-3"
+            >
+              <div className="grid grid-cols-10 gap-2">
+                {page.map((point) => {
+                  const valueHeight = point.value > 0 ? (point.value / maxValue) * 100 : 0;
+                  const unrealizedHeight =
+                    showUnrealized && point.unrealizedValue > 0
+                      ? (point.unrealizedValue / maxValue) * 100
+                      : 0;
+                  const expenseHeight =
+                    showExpenses && point.expenseValue > 0
+                      ? (point.expenseValue / maxValue) * 100
+                      : 0;
+
+                  return (
+                    <div key={point.key} className="min-w-0">
+                      <div className="relative h-48">
+                        <div className="absolute left-0 right-0 top-1/2 border-t border-slate-300" />
+                        <div className="absolute bottom-1/2 left-1/2 flex h-1/2 w-5 -translate-x-1/2 flex-col-reverse overflow-hidden rounded-t-full">
+                          {point.value > 0 ? (
+                            <div
+                              className="min-h-1 rounded-t-full bg-emerald-500"
+                              style={{ height: `${valueHeight}%` }}
+                              title={formatter(point.value)}
+                            />
+                          ) : null}
+                          {showUnrealized && point.unrealizedValue > 0 ? (
+                            <div
+                              className="min-h-1 bg-emerald-200"
+                              style={{ height: `${unrealizedHeight}%` }}
+                              title={formatter(point.unrealizedValue)}
+                            />
+                          ) : null}
+                        </div>
+                        {showExpenses && point.expenseValue > 0 ? (
+                          <div
+                            className="absolute left-1/2 top-1/2 min-h-1 w-5 -translate-x-1/2 rounded-b-full bg-rose-500"
+                            style={{ height: `${expenseHeight / 2}%` }}
+                            title={formatter(point.expenseValue)}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="mt-2 flex h-14 items-start justify-center">
+                        <span
+                          className="origin-top text-[10px] font-semibold leading-none text-slate-500"
+                          style={{ writingMode: "vertical-rl" }}
+                        >
+                          {point.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TrendBars({
   title,
   points,
   formatter,
   showUnrealized,
   onToggleUnrealized,
-  primaryColorClass,
-  secondaryColorClass,
-  negativeColorClass,
+  valueLabel = "Netto",
+  showExpenses = false,
   children,
 }: {
   title: string;
@@ -703,9 +832,8 @@ function TrendBars({
   formatter: (value: number) => string;
   showUnrealized: boolean;
   onToggleUnrealized: () => void;
-  primaryColorClass: string;
-  secondaryColorClass: string;
-  negativeColorClass?: string;
+  valueLabel?: string;
+  showExpenses?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -719,14 +847,25 @@ function TrendBars({
         />
       </div>
       {children ? <div>{children}</div> : null}
-      <TrendRows
+      <VerticalTrendChart
         points={points}
         formatter={formatter}
         showUnrealized={showUnrealized}
-        primaryColorClass={primaryColorClass}
-        secondaryColorClass={secondaryColorClass}
-        negativeColorClass={negativeColorClass}
+        showExpenses={showExpenses}
       />
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+          {valueLabel}
+        </span>
+        {showUnrealized ? (
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+            Plan
+          </span>
+        ) : null}
+        {showExpenses ? (
+          <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Wydatki</span>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -820,9 +959,7 @@ export default function MoneyExperience({ summary }: Props) {
         onToggleUnrealized={() =>
           setShowUnrealizedNet((currentValue) => !currentValue)
         }
-        primaryColorClass="bg-slate-950"
-        secondaryColorClass="bg-slate-300"
-        negativeColorClass="bg-rose-400"
+        showExpenses
       >
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
           <button
@@ -877,13 +1014,20 @@ export default function MoneyExperience({ summary }: Props) {
           </button>
         </div>
 
-        <TrendRows
+        <VerticalTrendChart
           points={visitsTrend}
           formatter={(value) => String(value)}
           showUnrealized={showUnrealizedVisits}
-          primaryColorClass="bg-slate-950"
-          secondaryColorClass="bg-slate-300"
+          showExpenses={false}
         />
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Wizyty</span>
+          {showUnrealizedVisits ? (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+              Plan
+            </span>
+          ) : null}
+        </div>
       </section>
 
       <ExpensesExperience recentExpenses={summary.recentExpenses} />
