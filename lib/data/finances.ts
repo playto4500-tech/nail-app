@@ -147,8 +147,8 @@ function createProjectionSummary(input: {
 
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const supabase = await createClient();
-  const today = new Date();
-  const todayKey = getTodayDateKey(today);
+  const todayKey = getTodayDateKey();
+  const today = new Date(`${todayKey}T12:00:00`);
   const startOfWeek = getStartOfWeek(today);
   const endOfWeek = addDays(startOfWeek, 6);
   const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);

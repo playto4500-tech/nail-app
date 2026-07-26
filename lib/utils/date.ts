@@ -1,7 +1,16 @@
+const BUSINESS_TIME_ZONE = "Europe/Brussels";
+
 export function getTodayDateKey(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+  }).formatToParts(now);
+  const year = dateParts.find((part) => part.type === "year")?.value ?? "";
+  const month = dateParts.find((part) => part.type === "month")?.value ?? "";
+  const day = dateParts.find((part) => part.type === "day")?.value ?? "";
+
   return `${year}-${month}-${day}`;
 }
 

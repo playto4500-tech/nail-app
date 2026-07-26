@@ -639,11 +639,9 @@ function SummaryPanel({ summary }: { summary: FinancePeriodSummary }) {
 function ProjectionRow({
   item,
   maxTotal,
-  averageIncomeLastMonth,
 }: {
   item: FinanceProjectionSummary;
   maxTotal: number;
-  averageIncomeLastMonth: number;
 }) {
   const earnedWidth = item.earnedIncome > 0 ? (item.earnedIncome / maxTotal) * 100 : 0;
   const unrealizedWidth =
@@ -677,7 +675,7 @@ function ProjectionRow({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+      <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
         <div>
           <p className="text-slate-500">Zarobione</p>
           <p className="mt-1 font-semibold text-slate-900">{formatPrice(item.earnedIncome)}</p>
@@ -685,12 +683,6 @@ function ProjectionRow({
         <div>
           <p className="text-slate-500">Prognoza</p>
           <p className="mt-1 font-semibold text-slate-900">{formatPrice(item.estimatedIncome)}</p>
-        </div>
-        <div>
-          <p className="text-slate-500">Śr.</p>
-          <p className="mt-1 font-semibold text-slate-900">
-            {formatPrice(averageIncomeLastMonth)}
-          </p>
         </div>
       </div>
     </div>
@@ -747,7 +739,6 @@ function ProjectionPanel({ projected }: { projected: FinanceSummary["projected"]
               key={item.label}
               item={item}
               maxTotal={maxTotal}
-              averageIncomeLastMonth={projected.averageIncomeLastMonth}
             />
           ))}
         </div>

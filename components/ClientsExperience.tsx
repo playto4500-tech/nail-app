@@ -259,7 +259,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
         <button
           type="button"
           onClick={() => setSortMode("alphabetical")}
-          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+          className={`flex items-center justify-center rounded-[18px] px-2 py-3 text-center text-sm font-semibold transition ${
             sortMode === "alphabetical"
               ? "bg-slate-950 text-white"
               : "text-slate-600 hover:bg-slate-50"
@@ -270,7 +270,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
         <button
           type="button"
           onClick={() => setSortMode("visitCount")}
-          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+          className={`flex items-center justify-center rounded-[18px] px-2 py-3 text-center text-sm font-semibold transition ${
             sortMode === "visitCount"
               ? "bg-slate-950 text-white"
               : "text-slate-600 hover:bg-slate-50"
@@ -281,7 +281,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
         <button
           type="button"
           onClick={() => setSortMode("oldestLastVisit")}
-          className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+          className={`flex items-center justify-center rounded-[18px] px-2 py-3 text-center text-sm font-semibold transition ${
             sortMode === "oldestLastVisit"
               ? "bg-slate-950 text-white"
               : "text-slate-600 hover:bg-slate-50"
@@ -307,7 +307,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
             <button
               type="button"
               onClick={() => openHistory(client.id)}
-              className="block w-full rounded-[24px] p-5 pb-16 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="block w-full rounded-[24px] p-4 pr-16 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -331,10 +331,10 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
               </div>
 
               {client.notes ? (
-                <p className="mt-4 text-sm text-slate-600">{client.notes}</p>
+                <p className="mt-3 text-sm text-slate-600">{client.notes}</p>
               ) : null}
 
-              <p className="mt-4 text-sm font-medium text-slate-500">
+              <p className="mt-3 text-sm font-medium text-slate-500">
                 Poprzednie wizyty:{" "}
                 <span className="text-slate-900">{visitCount}</span>
               </p>

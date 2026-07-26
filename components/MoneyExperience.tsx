@@ -466,11 +466,9 @@ function SelectedRangeSummary({ summary }: { summary: FinancePeriodSummary }) {
 function ProjectionRow({
   item,
   maxTotal,
-  averageIncomeLastMonth,
 }: {
   item: FinanceProjectionSummary;
   maxTotal: number;
-  averageIncomeLastMonth: number;
 }) {
   const earnedWidth = item.earnedIncome > 0 ? (item.earnedIncome / maxTotal) * 100 : 0;
   const unrealizedWidth =
@@ -536,9 +534,8 @@ function ProjectionRow({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+      <div className="mt-3 text-xs text-slate-500">
         <span>{item.unrealizedAppointmentCount} niezrealizowanych wizyt</span>
-        <span>Śr. wizyta: {formatPrice(averageIncomeLastMonth)}</span>
       </div>
     </article>
   );
@@ -572,7 +569,6 @@ function ProjectedEarningsCard({ projected }: { projected: FinanceSummary["proje
             key={item.label}
             item={item}
             maxTotal={maxTotal}
-            averageIncomeLastMonth={projected.averageIncomeLastMonth}
           />
         ))}
       </div>

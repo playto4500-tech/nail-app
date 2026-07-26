@@ -13,6 +13,15 @@ import {
 import { createClientRecord, getClientById } from "../../lib/data/clients";
 import { getServiceById } from "../../lib/data/services";
 
+function revalidateAppointmentViews() {
+  revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
+  revalidatePath("/clients");
+  revalidatePath("/planner");
+  revalidatePath("/money");
+  revalidatePath("/money-test");
+}
+
 export async function createAppointmentAction(formData: FormData): Promise<ActionResult> {
   const isNewClient = String(formData.get("isNewClient") ?? "") === "true";
   const clientId = Number(formData.get("clientId") ?? 0);
@@ -72,10 +81,7 @@ export async function createAppointmentAction(formData: FormData): Promise<Actio
     notes,
   });
 
-  revalidatePath("/appointments");
-  revalidatePath("/appointments-test");
-  revalidatePath("/clients");
-  revalidatePath("/planner");
+  revalidateAppointmentViews();
 
   return actionOk();
 }
@@ -115,9 +121,7 @@ export async function updateAppointmentAction(formData: FormData): Promise<Actio
     );
   }
 
-  revalidatePath("/appointments");
-  revalidatePath("/appointments-test");
-  revalidatePath("/planner");
+  revalidateAppointmentViews();
 
   return actionOk();
 }
@@ -140,9 +144,7 @@ export async function cancelAppointmentAction(formData: FormData): Promise<Actio
     );
   }
 
-  revalidatePath("/appointments");
-  revalidatePath("/appointments-test");
-  revalidatePath("/planner");
+  revalidateAppointmentViews();
 
   return actionOk();
 }
@@ -219,9 +221,7 @@ export async function completeAppointmentAction(formData: FormData): Promise<Act
     return actionError(message);
   }
 
-  revalidatePath("/appointments");
-  revalidatePath("/appointments-test");
-  revalidatePath("/planner");
+  revalidateAppointmentViews();
 
   return actionOk();
 }
@@ -241,9 +241,7 @@ export async function deleteAppointmentAction(formData: FormData): Promise<Actio
     );
   }
 
-  revalidatePath("/appointments");
-  revalidatePath("/appointments-test");
-  revalidatePath("/planner");
+  revalidateAppointmentViews();
 
   return actionOk();
 }

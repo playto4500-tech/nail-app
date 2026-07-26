@@ -2,6 +2,8 @@ import MoneyTestExperience from "../../components/MoneyTestExperience";
 import { getFinanceSummary } from "../../lib/data/finances";
 import { isSupabaseConfigured } from "../../lib/supabase/env";
 
+export const dynamic = "force-dynamic";
+
 export default async function MoneyTestPage() {
   if (!isSupabaseConfigured()) {
     return (
