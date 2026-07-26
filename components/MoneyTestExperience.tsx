@@ -880,13 +880,7 @@ function getTrendPages(points: TrendPoint[]) {
   return pages.length > 0 ? pages : [[]];
 }
 
-function getReferenceValues(maxValue: number) {
-  return Array.from(new Set([maxValue, Math.round(maxValue / 2)])).filter(
-    (value) => value > 0,
-  );
-}
-
-function VerticalTrendChart({
+function HorizontalTrendChart({
   points,
   formatter,
   showUnrealized,
@@ -921,152 +915,94 @@ function VerticalTrendChart({
             1,
             ...page.map((point) => (showExpenses ? point.expenseValue : 0)),
           );
-          const positiveAreaPercent = showExpenses ? 68 : 82;
-          const negativeAreaPercent = 100 - positiveAreaPercent;
-          const positiveReferenceValues = getReferenceValues(positiveMaxValue);
-          const expenseReferenceValues = showExpenses
-            ? getReferenceValues(expenseMaxValue)
-            : [];
-
           return (
             <div
               key={`${pageIndex}-${page[0]?.key ?? "empty"}`}
               className="min-w-full snap-start rounded-lg border border-slate-100 bg-slate-50 p-3"
             >
-              <div className="relative">
-                <div className="pointer-events-none absolute left-0 right-0 top-12 h-44">
-                  {positiveReferenceValues.map((value) => (
-                    <div
-                      key={`positive-${value}`}
-                      className="absolute left-0 right-0 border-t border-dashed border-emerald-200"
-                      style={{
-                        top: `${
-                          positiveAreaPercent -
-                          (value / positiveMaxValue) * positiveAreaPercent
-                        }%`,
-                      }}
-                    >
-                      <span className="absolute -top-2 left-0 rounded-full bg-slate-50 pr-1 text-[9px] font-bold leading-none text-emerald-700">
-                        {formatter(value)}
-                      </span>
-                    </div>
-                  ))}
-                  <div
-                    className="absolute left-0 right-0 border-t border-slate-300"
-                    style={{ top: `${positiveAreaPercent}%` }}
-                  />
-                  {expenseReferenceValues.map((value) => (
-                    <div
-                      key={`expense-${value}`}
-                      className="absolute left-0 right-0 border-t border-dashed border-rose-200"
-                      style={{
-                        top: `${
-                          positiveAreaPercent +
-                          (value / expenseMaxValue) * negativeAreaPercent
-                        }%`,
-                      }}
-                    >
-                      <span className="absolute -top-2 left-0 rounded-full bg-slate-50 pr-1 text-[9px] font-bold leading-none text-rose-700">
-                        {formatter(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="relative grid grid-cols-10 gap-2">
+              <div className="space-y-3">
                 {page.map((point) => {
                   const visibleUnrealizedValue =
                     showUnrealized && point.unrealizedValue > 0
                       ? point.unrealizedValue
                       : 0;
                   const positiveTotal = point.value + visibleUnrealizedValue;
-                  const positiveBarHeight =
-                    positiveTotal > 0
-                      ? (positiveTotal / positiveMaxValue) * positiveAreaPercent
-                      : 0;
-                  const valueHeight =
+                  const positiveBarWidth =
+                    positiveTotal > 0 ? (positiveTotal / positiveMaxValue) * 100 : 0;
+                  const valueWidth =
                     positiveTotal > 0 && point.value > 0
                       ? (point.value / positiveTotal) * 100
                       : 0;
-                  const unrealizedHeight =
+                  const unrealizedWidth =
                     positiveTotal > 0 && visibleUnrealizedValue > 0
                       ? (visibleUnrealizedValue / positiveTotal) * 100
                       : 0;
-                  const expenseHeight =
+                  const expenseWidth =
                     showExpenses && point.expenseValue > 0
-                      ? (point.expenseValue / expenseMaxValue) * negativeAreaPercent
+                      ? (point.expenseValue / expenseMaxValue) * 100
                       : 0;
 
                   return (
-                    <div key={point.key} className="min-w-0">
-                      <div className="flex h-12 items-end justify-center">
-                        {positiveTotal > 0 ? (
-                          <span
-                            className="text-[9px] font-bold leading-none text-emerald-700"
-                            style={{ writingMode: "vertical-rl" }}
-                          >
-                            {formatter(positiveTotal)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="relative h-44">
+                    <div
+                      key={point.key}
+                      className={`grid items-center gap-2 ${
+                        showExpenses
+                          ? "grid-cols-[2.75rem_3.75rem_minmax(0,0.62fr)_1px_minmax(0,1fr)_3.75rem]"
+                          : "grid-cols-[2.75rem_1px_minmax(0,1fr)_3.75rem]"
+                      }`}
+                    >
+                      <p className="truncate text-xs font-bold text-slate-500">
+                        {point.label}
+                      </p>
+
+                      {showExpenses ? (
+                        <>
+                          <p className="text-right text-[10px] font-bold leading-none text-rose-700">
+                            {point.expenseValue > 0 ? formatter(point.expenseValue) : ""}
+                          </p>
+                          <div className="flex h-7 items-center justify-end">
+                            {point.expenseValue > 0 ? (
+                              <div
+                                className="h-4 min-w-1 rounded-md bg-rose-500"
+                                style={{ width: `${expenseWidth}%` }}
+                                title={formatter(point.expenseValue)}
+                              />
+                            ) : null}
+                          </div>
+                        </>
+                      ) : null}
+
+                      <div className="h-8 w-px rounded-full bg-slate-300" />
+
+                      <div className="flex h-7 items-center">
                         {positiveTotal > 0 ? (
                           <div
-                            className="absolute left-1/2 flex min-h-1 w-5 -translate-x-1/2 flex-col-reverse overflow-hidden rounded-md"
-                            style={{
-                              bottom: `${negativeAreaPercent}%`,
-                              height: `${positiveBarHeight}%`,
-                            }}
+                            className="flex h-4 min-w-1 overflow-hidden rounded-md"
+                            style={{ width: `${positiveBarWidth}%` }}
                           >
                             {point.value > 0 ? (
                               <div
                                 className="bg-emerald-500"
-                                style={{ height: `${valueHeight}%` }}
+                                style={{ width: `${valueWidth}%` }}
                                 title={formatter(point.value)}
                               />
                             ) : null}
                             {visibleUnrealizedValue > 0 ? (
                               <div
                                 className="bg-emerald-200"
-                                style={{ height: `${unrealizedHeight}%` }}
+                                style={{ width: `${unrealizedWidth}%` }}
                                 title={formatter(visibleUnrealizedValue)}
                               />
                             ) : null}
                           </div>
                         ) : null}
-                        {showExpenses && point.expenseValue > 0 ? (
-                          <div
-                            className="absolute left-1/2 min-h-1 w-5 -translate-x-1/2 rounded-md bg-rose-500"
-                            style={{
-                              height: `${expenseHeight}%`,
-                              top: `${positiveAreaPercent}%`,
-                            }}
-                            title={formatter(point.expenseValue)}
-                          />
-                        ) : null}
                       </div>
-                      <div className="flex h-10 items-start justify-center">
-                        {showExpenses && point.expenseValue > 0 ? (
-                          <span
-                            className="text-[9px] font-bold leading-none text-rose-700"
-                            style={{ writingMode: "vertical-rl" }}
-                          >
-                            {formatter(point.expenseValue)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-2 flex h-14 items-start justify-center">
-                        <span
-                          className="origin-top text-[10px] font-bold leading-none text-slate-500"
-                          style={{ writingMode: "vertical-rl" }}
-                        >
-                          {point.label}
-                        </span>
-                      </div>
+                      <p className="text-[10px] font-bold leading-none text-emerald-700">
+                        {positiveTotal > 0 ? formatter(positiveTotal) : ""}
+                      </p>
                     </div>
                   );
                 })}
-                </div>
               </div>
             </div>
           );
@@ -1104,7 +1040,7 @@ function TrendPanel({
         <ShowUnrealizedToggle showUnrealized={showUnrealized} onClick={onToggleUnrealized} />
       </div>
       {children ? <div className="mb-4">{children}</div> : null}
-      <VerticalTrendChart
+      <HorizontalTrendChart
         points={points}
         formatter={formatter}
         showUnrealized={showUnrealized}
