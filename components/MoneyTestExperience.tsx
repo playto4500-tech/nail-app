@@ -880,6 +880,12 @@ function getTrendPages(points: TrendPoint[]) {
   return pages.length > 0 ? pages : [[]];
 }
 
+function getReferenceValues(maxValue: number) {
+  return Array.from(new Set([maxValue, Math.round(maxValue / 2)])).filter(
+    (value) => value > 0,
+  );
+}
+
 function VerticalTrendChart({
   points,
   formatter,
@@ -905,59 +911,148 @@ function VerticalTrendChart({
     >
       <div className="flex snap-x snap-mandatory gap-3">
         {pages.map((page, pageIndex) => {
-          const maxValue = Math.max(
+          const positiveMaxValue = Math.max(
             1,
             ...page.map((point) =>
-              Math.max(
-                point.value + (showUnrealized ? point.unrealizedValue : 0),
-                showExpenses ? point.expenseValue : 0,
-              ),
+              point.value + (showUnrealized ? point.unrealizedValue : 0),
             ),
           );
+          const expenseMaxValue = Math.max(
+            1,
+            ...page.map((point) => (showExpenses ? point.expenseValue : 0)),
+          );
+          const positiveAreaPercent = showExpenses ? 68 : 82;
+          const negativeAreaPercent = 100 - positiveAreaPercent;
+          const positiveReferenceValues = getReferenceValues(positiveMaxValue);
+          const expenseReferenceValues = showExpenses
+            ? getReferenceValues(expenseMaxValue)
+            : [];
 
           return (
             <div
               key={`${pageIndex}-${page[0]?.key ?? "empty"}`}
               className="min-w-full snap-start rounded-lg border border-slate-100 bg-slate-50 p-3"
             >
-              <div className="grid grid-cols-10 gap-2">
+              <div className="relative">
+                <div className="pointer-events-none absolute left-0 right-0 top-12 h-44">
+                  {positiveReferenceValues.map((value) => (
+                    <div
+                      key={`positive-${value}`}
+                      className="absolute left-0 right-0 border-t border-dashed border-emerald-200"
+                      style={{
+                        top: `${
+                          positiveAreaPercent -
+                          (value / positiveMaxValue) * positiveAreaPercent
+                        }%`,
+                      }}
+                    >
+                      <span className="absolute -top-2 left-0 rounded-full bg-slate-50 pr-1 text-[9px] font-bold leading-none text-emerald-700">
+                        {formatter(value)}
+                      </span>
+                    </div>
+                  ))}
+                  <div
+                    className="absolute left-0 right-0 border-t border-slate-300"
+                    style={{ top: `${positiveAreaPercent}%` }}
+                  />
+                  {expenseReferenceValues.map((value) => (
+                    <div
+                      key={`expense-${value}`}
+                      className="absolute left-0 right-0 border-t border-dashed border-rose-200"
+                      style={{
+                        top: `${
+                          positiveAreaPercent +
+                          (value / expenseMaxValue) * negativeAreaPercent
+                        }%`,
+                      }}
+                    >
+                      <span className="absolute -top-2 left-0 rounded-full bg-slate-50 pr-1 text-[9px] font-bold leading-none text-rose-700">
+                        {formatter(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative grid grid-cols-10 gap-2">
                 {page.map((point) => {
-                  const valueHeight = point.value > 0 ? (point.value / maxValue) * 100 : 0;
-                  const unrealizedHeight =
+                  const visibleUnrealizedValue =
                     showUnrealized && point.unrealizedValue > 0
-                      ? (point.unrealizedValue / maxValue) * 100
+                      ? point.unrealizedValue
+                      : 0;
+                  const positiveTotal = point.value + visibleUnrealizedValue;
+                  const positiveBarHeight =
+                    positiveTotal > 0
+                      ? (positiveTotal / positiveMaxValue) * positiveAreaPercent
+                      : 0;
+                  const valueHeight =
+                    positiveTotal > 0 && point.value > 0
+                      ? (point.value / positiveTotal) * 100
+                      : 0;
+                  const unrealizedHeight =
+                    positiveTotal > 0 && visibleUnrealizedValue > 0
+                      ? (visibleUnrealizedValue / positiveTotal) * 100
                       : 0;
                   const expenseHeight =
                     showExpenses && point.expenseValue > 0
-                      ? (point.expenseValue / maxValue) * 100
+                      ? (point.expenseValue / expenseMaxValue) * negativeAreaPercent
                       : 0;
 
                   return (
                     <div key={point.key} className="min-w-0">
-                      <div className="relative h-52">
-                        <div className="absolute left-0 right-0 top-1/2 border-t border-slate-300" />
-                        <div className="absolute bottom-1/2 left-1/2 flex h-1/2 w-5 -translate-x-1/2 flex-col-reverse overflow-hidden rounded-t-md">
-                          {point.value > 0 ? (
-                            <div
-                              className="min-h-1 rounded-t-md bg-emerald-500"
-                              style={{ height: `${valueHeight}%` }}
-                              title={formatter(point.value)}
-                            />
-                          ) : null}
-                          {showUnrealized && point.unrealizedValue > 0 ? (
-                            <div
-                              className="min-h-1 bg-emerald-200"
-                              style={{ height: `${unrealizedHeight}%` }}
-                              title={formatter(point.unrealizedValue)}
-                            />
-                          ) : null}
-                        </div>
+                      <div className="flex h-12 items-end justify-center">
+                        {positiveTotal > 0 ? (
+                          <span
+                            className="text-[9px] font-bold leading-none text-emerald-700"
+                            style={{ writingMode: "vertical-rl" }}
+                          >
+                            {formatter(positiveTotal)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="relative h-44">
+                        {positiveTotal > 0 ? (
+                          <div
+                            className="absolute left-1/2 flex min-h-1 w-5 -translate-x-1/2 flex-col-reverse overflow-hidden rounded-md"
+                            style={{
+                              bottom: `${negativeAreaPercent}%`,
+                              height: `${positiveBarHeight}%`,
+                            }}
+                          >
+                            {point.value > 0 ? (
+                              <div
+                                className="bg-emerald-500"
+                                style={{ height: `${valueHeight}%` }}
+                                title={formatter(point.value)}
+                              />
+                            ) : null}
+                            {visibleUnrealizedValue > 0 ? (
+                              <div
+                                className="bg-emerald-200"
+                                style={{ height: `${unrealizedHeight}%` }}
+                                title={formatter(visibleUnrealizedValue)}
+                              />
+                            ) : null}
+                          </div>
+                        ) : null}
                         {showExpenses && point.expenseValue > 0 ? (
                           <div
-                            className="absolute left-1/2 top-1/2 min-h-1 w-5 -translate-x-1/2 rounded-b-md bg-rose-500"
-                            style={{ height: `${expenseHeight / 2}%` }}
+                            className="absolute left-1/2 min-h-1 w-5 -translate-x-1/2 rounded-md bg-rose-500"
+                            style={{
+                              height: `${expenseHeight}%`,
+                              top: `${positiveAreaPercent}%`,
+                            }}
                             title={formatter(point.expenseValue)}
                           />
+                        ) : null}
+                      </div>
+                      <div className="flex h-10 items-start justify-center">
+                        {showExpenses && point.expenseValue > 0 ? (
+                          <span
+                            className="text-[9px] font-bold leading-none text-rose-700"
+                            style={{ writingMode: "vertical-rl" }}
+                          >
+                            {formatter(point.expenseValue)}
+                          </span>
                         ) : null}
                       </div>
                       <div className="mt-2 flex h-14 items-start justify-center">
@@ -971,6 +1066,7 @@ function VerticalTrendChart({
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
           );
