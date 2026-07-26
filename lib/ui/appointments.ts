@@ -2,6 +2,7 @@ import { getTodayDateKey } from "../utils/date";
 import { formatPrice } from "./format";
 
 export type AppointmentStatus = "confirmed" | "cancelled" | "scheduled" | "completed";
+export type DisplayAppointmentStatus = AppointmentStatus | "overdue";
 
 export type AppointmentCompletionState = {
   price: number;
@@ -46,7 +47,40 @@ export function getAppointmentPaidTotal(price: number, tip?: null | number) {
   return price + (tip ?? 0);
 }
 
-export function getStatusLabel(status: AppointmentStatus) {
+export function getCurrentTimeKey(now = new Date()) {
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+export function getDisplayStatus(input: {
+  date: string;
+  status: AppointmentStatus;
+  time: string;
+}, now = new Date()): DisplayAppointmentStatus {
+  if (input.status === "completed" || input.status === "cancelled") {
+    return input.status;
+  }
+
+  const todayDateKey = getTodayDateKey(now);
+  const currentTimeKey = getCurrentTimeKey(now);
+  const appointmentTime = input.time.slice(0, 5);
+
+  if (
+    input.date < todayDateKey ||
+    (input.date === todayDateKey && appointmentTime < currentTimeKey)
+  ) {
+    return "overdue";
+  }
+
+  return input.status;
+}
+
+export function getStatusLabel(status: DisplayAppointmentStatus) {
+  if (status === "overdue") {
+    return "Zaległa";
+  }
+
   if (status === "confirmed") {
     return "Potwierdzona";
   }
@@ -62,7 +96,11 @@ export function getStatusLabel(status: AppointmentStatus) {
   return "Zaplanowana";
 }
 
-export function getStatusClasses(status: AppointmentStatus) {
+export function getStatusClasses(status: DisplayAppointmentStatus) {
+  if (status === "overdue") {
+    return "bg-red-100 text-red-700";
+  }
+
   if (status === "confirmed") {
     return "bg-emerald-100 text-emerald-700";
   }

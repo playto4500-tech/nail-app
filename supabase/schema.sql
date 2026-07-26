@@ -25,7 +25,7 @@ create table if not exists public.appointments (
   service_name text,
   appointment_date date not null,
   appointment_time time not null,
-  appointment_price integer check (appointment_price is null or appointment_price > 0),
+  appointment_price integer check (appointment_price is null or appointment_price >= 0),
   appointment_tip integer check (appointment_tip is null or appointment_tip >= 0),
   status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'scheduled', 'completed')),
   notes text,
@@ -138,7 +138,7 @@ with check (
     or (
       service_id is not null
       and char_length(coalesce(service_name, '')) > 0
-      and appointment_price > 0
+      and appointment_price >= 0
     )
   )
 );
@@ -157,7 +157,7 @@ with check (
     or (
       service_id is not null
       and char_length(coalesce(service_name, '')) > 0
-      and appointment_price > 0
+      and appointment_price >= 0
     )
   )
 );

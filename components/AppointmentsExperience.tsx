@@ -9,11 +9,11 @@ import {
   formatPrice,
   formatSectionDate,
   getAppointmentPaidTotal,
+  getDisplayStatus,
   getStatusClasses,
   getStatusLabel,
-  getTodayDateKey,
+  type DisplayAppointmentStatus,
   type AppointmentCompletionState,
-  type AppointmentStatus,
   type ToastMessage,
 } from "../lib/ui/appointments";
 
@@ -58,7 +58,6 @@ export default function AppointmentsExperience({
       appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? null,
     [appointments, selectedAppointmentId],
   );
-  const todayDateKey = useMemo(() => getTodayDateKey(), []);
 
   const groupedAppointments = useMemo(() => {
     function isCompleted(appointment: Appointment) {
@@ -76,12 +75,10 @@ export default function AppointmentsExperience({
       return a.time.localeCompare(b.time);
     }
 
-    const upcoming = appointments.filter(
-      (appointment) => !isCompleted(appointment) && appointment.date >= todayDateKey,
+    const currentAppointments = appointments.filter(
+      (appointment) => !isCompleted(appointment),
     );
-    const past = appointments.filter(
-      (appointment) => isCompleted(appointment) || appointment.date < todayDateKey,
-    );
+    const past = appointments.filter((appointment) => isCompleted(appointment));
 
     function groupByDate(items: Appointment[], direction: "asc" | "desc") {
       const sortedItems = [...items].sort((a, b) => {
@@ -104,12 +101,12 @@ export default function AppointmentsExperience({
     }
 
     return {
-      upcomingGroups: groupByDate(upcoming, "asc"),
+      currentGroups: groupByDate(currentAppointments, "asc"),
       pastGroups: groupByDate(past, "desc"),
-      upcomingCount: upcoming.length,
+      currentCount: currentAppointments.length,
       pastCount: past.length,
     };
-  }, [appointments, completedAppointmentStates, todayDateKey]);
+  }, [appointments, completedAppointmentStates]);
 
   useEffect(() => {
     if (!toast) {
@@ -123,7 +120,7 @@ export default function AppointmentsExperience({
   function renderAppointmentCard(appointment: Appointment) {
     const completedState = completedAppointmentStates[appointment.id] ?? null;
     const displayAppointment = getDisplayAppointment(appointment, completedState);
-    const displayStatus = displayAppointment.status as AppointmentStatus;
+    const displayStatus = getDisplayStatus(displayAppointment) as DisplayAppointmentStatus;
     const canComplete = displayStatus !== "cancelled" && displayStatus !== "completed";
 
     return (
@@ -241,17 +238,17 @@ export default function AppointmentsExperience({
 
       <section className="space-y-4">
         <div className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-          <p className="text-sm text-slate-500">Nadchodzące wizyty</p>
+          <p className="text-sm text-slate-500">Wizyty</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {groupedAppointments.upcomingCount}
+            {groupedAppointments.currentCount}
           </p>
           <p className="mt-1 text-sm text-slate-500">
-            Pokazujemy tylko dni, które mają przypisane wizyty.
+            Pokazujemy wizyty bieżące i zaległe. Dopiero zakończone trafiają niżej.
           </p>
         </div>
 
-        {groupedAppointments.upcomingGroups.length > 0 ? (
-          groupedAppointments.upcomingGroups.map((group) => (
+        {groupedAppointments.currentGroups.length > 0 ? (
+          groupedAppointments.currentGroups.map((group) => (
             <section key={group.date} className="space-y-3">
               <p className="pl-1 text-sm font-semibold text-slate-700">{group.label}</p>
               <div className="space-y-3">{group.items.map(renderAppointmentCard)}</div>
@@ -259,7 +256,7 @@ export default function AppointmentsExperience({
           ))
         ) : (
           <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm shadow-slate-200">
-            Nie ma jeszcze żadnych nadchodzących wizyt.
+            Nie ma jeszcze żadnych aktywnych wizyt.
           </div>
         )}
 
@@ -273,7 +270,7 @@ export default function AppointmentsExperience({
               <div>
                 <p className="text-sm font-semibold text-slate-900">Poprzednie wizyty</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {groupedAppointments.pastCount} zakończonych albo wcześniejszych wizyt
+                  {groupedAppointments.pastCount} zakończonych wizyt
                 </p>
               </div>
               <span className="text-sm font-semibold text-slate-600">

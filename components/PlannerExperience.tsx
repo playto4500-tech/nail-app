@@ -23,9 +23,11 @@ import {
 } from "../lib/planner/calendar";
 import {
   formatLongDate,
+  getDisplayStatus,
   getStatusClasses,
   getStatusLabel,
   getTodayDateKey,
+  type DisplayAppointmentStatus,
   type AppointmentCompletionState,
   type ToastMessage,
 } from "../lib/ui/appointments";
@@ -210,6 +212,29 @@ export default function PlannerExperience({ appointments, clients, services }: P
   function handleDaySelect(dateKey: string) {
     setSelectedDateKey(dateKey);
     setAnchorDate(parseDateKey(dateKey));
+  }
+
+  function renderSelectedDateAppointment(appointment: Appointment) {
+    const displayStatus = getDisplayStatus(appointment) as DisplayAppointmentStatus;
+
+    return (
+      <button
+        key={appointment.id}
+        type="button"
+        onClick={() => setSelectedAppointmentId(appointment.id)}
+        className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
+      >
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-slate-900">{appointment.clientName}</p>
+          <p className="mt-1 text-sm text-slate-500">{appointment.time}</p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(displayStatus)}`}
+        >
+          {getStatusLabel(displayStatus)}
+        </span>
+      </button>
+    );
   }
 
   const addAppointmentHref = `/appointments/new?date=${selectedDateKey}`;
@@ -411,26 +436,7 @@ export default function PlannerExperience({ appointments, clients, services }: P
 
           {selectedDateAppointments.length > 0 ? (
             <div className="mt-4 space-y-2">
-              {selectedDateAppointments.map((appointment) => (
-                <button
-                  key={appointment.id}
-                  type="button"
-                  onClick={() => setSelectedAppointmentId(appointment.id)}
-                  className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                >
-                  <div className="min-w-0">
-                    <p className="text-base font-semibold text-slate-900">
-                      {appointment.clientName}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">{appointment.time}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(appointment.status)}`}
-                  >
-                    {getStatusLabel(appointment.status)}
-                  </span>
-                </button>
-              ))}
+              {selectedDateAppointments.map(renderSelectedDateAppointment)}
 
               <Link
                 href={addAppointmentHref}

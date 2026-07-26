@@ -204,6 +204,7 @@ export default function NewAppointmentForm({
           <input
             name="time"
             type="time"
+            step="900"
             required
             className="w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition focus:border-slate-400"
           />

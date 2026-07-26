@@ -21,9 +21,11 @@ import {
   formatAppointmentDate,
   formatPrice,
   getAppointmentPaidTotal,
+  getDisplayStatus,
   getStatusClasses,
   getStatusLabel,
   type AppointmentCompletionState,
+  type DisplayAppointmentStatus,
   type ToastMessage,
 } from "../lib/ui/appointments";
 
@@ -109,6 +111,7 @@ export default function AppointmentDetailsModal({
   }
 
   const appointment = selectedAppointment;
+  const displayStatus = getDisplayStatus(appointment) as DisplayAppointmentStatus;
 
   function closeModal() {
     if (isPending) {
@@ -348,6 +351,7 @@ export default function AppointmentDetailsModal({
                 <input
                   name="time"
                   type="time"
+                  step="900"
                   required
                   value={editState.time}
                   onChange={(event) =>
@@ -445,7 +449,7 @@ export default function AppointmentDetailsModal({
                 <input
                   name="price"
                   type="number"
-                  min="1"
+                  min="0"
                   step="1"
                   required
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
@@ -549,9 +553,9 @@ export default function AppointmentDetailsModal({
           <div className="mt-6 space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(selectedAppointment.status)}`}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(displayStatus)}`}
               >
-                {getStatusLabel(selectedAppointment.status)}
+                {getStatusLabel(displayStatus)}
               </span>
             </div>
 
@@ -592,7 +596,7 @@ export default function AppointmentDetailsModal({
                   </p>
                 </div>
               ) : null}
-              {selectedAppointment.status === "completed" ? (
+              {displayStatus === "completed" ? (
                 <div className="col-span-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
                     Otrzymano
@@ -622,9 +626,9 @@ export default function AppointmentDetailsModal({
             ) : null}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {selectedAppointment.status === "completed" ? null : (
+              {displayStatus === "completed" ? null : (
                 <>
-                  {selectedAppointment.status === "cancelled" ? null : (
+                  {displayStatus === "cancelled" ? null : (
                     <button
                       type="button"
                       onClick={openCompleteMode}
@@ -645,7 +649,7 @@ export default function AppointmentDetailsModal({
                   <button
                     type="button"
                     onClick={handleCancelAppointment}
-                    disabled={isPending || selectedAppointment.status === "cancelled"}
+                    disabled={isPending || displayStatus === "cancelled"}
                     className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                   >
                     Anuluj

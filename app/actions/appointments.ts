@@ -159,7 +159,7 @@ export async function completeAppointmentAction(formData: FormData): Promise<Act
     !serviceId ||
     !Number.isFinite(price) ||
     !Number.isInteger(price) ||
-    price <= 0
+    price < 0
   ) {
     return actionError("Wybierz usługę i wpisz poprawną kwotę za wizytę.");
   }
