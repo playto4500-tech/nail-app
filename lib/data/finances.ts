@@ -25,7 +25,7 @@ type IncomeRow = {
   appointment_tip: null | number;
 };
 
-type FutureAppointmentRow = {
+type PlannedAppointmentRow = {
   appointment_date: string;
 };
 
@@ -40,20 +40,28 @@ export type ExpenseAmountItem = {
   amount: number;
 };
 
+export type PlannedAppointmentIncome = {
+  date: string;
+};
+
 export type FinanceProjectionSummary = {
   label: string;
   from: string;
   to: string;
   mode: "mixed" | "projected";
   earnedIncome: number;
-  projectedIncome: number;
+  estimatedIncome: number;
+  unrealizedIncome: number;
   totalIncome: number;
-  projectedAppointmentCount: number;
+  completedAppointmentCount: number;
+  unrealizedAppointmentCount: number;
+  estimatedAppointmentCount: number;
 };
 
 export type FinanceSummary = {
   todayKey: string;
   completedAppointments: CompletedAppointmentIncome[];
+  plannedAppointments: PlannedAppointmentIncome[];
   expenseItems: ExpenseAmountItem[];
   projected: {
     currentWeek: FinanceProjectionSummary;
@@ -109,11 +117,17 @@ function createProjectionSummary(input: {
   to: string;
   mode: "mixed" | "projected";
   earnedIncome: number;
-  projectedAppointmentCount: number;
+  completedAppointmentCount: number;
+  unrealizedAppointmentCount: number;
   averageIncomeLastMonth: number;
 }) {
-  const projectedIncome = Math.round(
-    input.projectedAppointmentCount * input.averageIncomeLastMonth,
+  const estimatedAppointmentCount =
+    input.completedAppointmentCount + input.unrealizedAppointmentCount;
+  const estimatedIncome = Math.round(
+    estimatedAppointmentCount * input.averageIncomeLastMonth,
+  );
+  const unrealizedIncome = Math.round(
+    input.unrealizedAppointmentCount * input.averageIncomeLastMonth,
   );
 
   return {
@@ -122,9 +136,12 @@ function createProjectionSummary(input: {
     to: input.to,
     mode: input.mode,
     earnedIncome: input.earnedIncome,
-    projectedIncome,
-    totalIncome: input.earnedIncome + projectedIncome,
-    projectedAppointmentCount: input.projectedAppointmentCount,
+    estimatedIncome,
+    unrealizedIncome,
+    totalIncome: input.earnedIncome + unrealizedIncome,
+    completedAppointmentCount: input.completedAppointmentCount,
+    unrealizedAppointmentCount: input.unrealizedAppointmentCount,
+    estimatedAppointmentCount,
   };
 }
 
@@ -140,7 +157,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const endOfNextWeek = addDays(startOfNextWeek, 6);
   const monthAgoKey = toDateKey(addDays(today, -30));
 
-  const [incomeResponse, expenseResponse, futureAppointmentsResponse] = await Promise.all([
+  const [incomeResponse, expenseResponse, plannedAppointmentsResponse] = await Promise.all([
     supabase
       .from("appointments")
       .select("appointment_date, appointment_price, appointment_tip")
@@ -157,7 +174,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       .select("appointment_date")
       .in("status", ["confirmed", "scheduled"])
       .is("deleted_at", null)
-      .gte("appointment_date", todayKey),
+      .order("appointment_date", { ascending: true }),
   ]);
 
   if (incomeResponse.error) {
@@ -168,9 +185,9 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     throw new Error(`Failed to load expenses: ${expenseResponse.error.message}`);
   }
 
-  if (futureAppointmentsResponse.error) {
+  if (plannedAppointmentsResponse.error) {
     throw new Error(
-      `Failed to load projected appointments: ${futureAppointmentsResponse.error.message}`,
+      `Failed to load projected appointments: ${plannedAppointmentsResponse.error.message}`,
     );
   }
 
@@ -191,7 +208,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     date: expense.date,
     amount: expense.amount,
   }));
-  const futureAppointments = ((futureAppointmentsResponse.data ?? []) as FutureAppointmentRow[]).map(
+  const plannedAppointments = ((plannedAppointmentsResponse.data ?? []) as PlannedAppointmentRow[]).map(
     (item) => ({
       date: item.appointment_date,
     }),
@@ -220,6 +237,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   return {
     todayKey,
     completedAppointments,
+    plannedAppointments,
     expenseItems,
     projected: {
       currentWeek: createProjectionSummary({
@@ -228,7 +246,16 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
         to: currentWeekTo,
         mode: "mixed",
         earnedIncome: sumInRange(completedAppointments, currentWeekFrom, todayKey),
-        projectedAppointmentCount: countInRange(futureAppointments, todayKey, currentWeekTo),
+        completedAppointmentCount: countInRange(
+          completedAppointments,
+          currentWeekFrom,
+          currentWeekTo,
+        ),
+        unrealizedAppointmentCount: countInRange(
+          plannedAppointments,
+          currentWeekFrom,
+          currentWeekTo,
+        ),
         averageIncomeLastMonth,
       }),
       nextWeek: createProjectionSummary({
@@ -237,7 +264,8 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
         to: nextWeekTo,
         mode: "projected",
         earnedIncome: 0,
-        projectedAppointmentCount: countInRange(futureAppointments, nextWeekFrom, nextWeekTo),
+        completedAppointmentCount: 0,
+        unrealizedAppointmentCount: countInRange(plannedAppointments, nextWeekFrom, nextWeekTo),
         averageIncomeLastMonth,
       }),
       currentMonth: createProjectionSummary({
@@ -246,7 +274,16 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
         to: currentMonthTo,
         mode: "mixed",
         earnedIncome: sumInRange(completedAppointments, currentMonthFrom, todayKey),
-        projectedAppointmentCount: countInRange(futureAppointments, todayKey, currentMonthTo),
+        completedAppointmentCount: countInRange(
+          completedAppointments,
+          currentMonthFrom,
+          currentMonthTo,
+        ),
+        unrealizedAppointmentCount: countInRange(
+          plannedAppointments,
+          currentMonthFrom,
+          currentMonthTo,
+        ),
         averageIncomeLastMonth,
       }),
       averageIncomeLastMonth,

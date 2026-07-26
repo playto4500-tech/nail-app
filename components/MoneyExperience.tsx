@@ -7,6 +7,7 @@ import type {
   ExpenseAmountItem,
   FinanceProjectionSummary,
   FinanceSummary,
+  PlannedAppointmentIncome,
 } from "../lib/data/finances";
 import { formatNumericDate, formatPrice } from "../lib/ui/format";
 
@@ -33,6 +34,8 @@ type TrendPoint = {
   key: string;
   label: string;
   value: number;
+  unrealizedValue: number;
+  unrealizedMeta?: string;
 };
 
 const rangeOptions: Array<{ key: RangeKey; label: string }> = [
@@ -53,14 +56,14 @@ function MetricTile({
 }) {
   const valueClassName =
     tone === "good"
-      ? "text-emerald-300"
+      ? "text-emerald-700"
       : tone === "bad"
-        ? "text-rose-300"
-        : "text-white";
+        ? "text-rose-700"
+        : "text-slate-950";
 
   return (
-    <div className="rounded-[22px] border border-white/10 bg-white/8 px-3 py-3 backdrop-blur-sm">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">{label}</p>
+    <div className="rounded-2xl bg-slate-50 px-3 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
       <p className={`mt-1 text-base font-semibold ${valueClassName}`}>{value}</p>
     </div>
   );
@@ -163,13 +166,8 @@ function sumInRange<T extends { date: string; amount: number }>(
   }, 0);
 }
 
-function countAppointmentsInRange(
-  appointments: CompletedAppointmentIncome[],
-  from: string,
-  to: string,
-) {
-  return appointments.filter((appointment) => appointment.date >= from && appointment.date <= to)
-    .length;
+function countInRange<T extends { date: string }>(items: T[], from: string, to: string) {
+  return items.filter((item) => item.date >= from && item.date <= to).length;
 }
 
 function createPeriodSummary(
@@ -273,6 +271,8 @@ function buildMonthlyNetTrend(
   todayKey: string,
   incomes: CompletedAppointmentIncome[],
   expenses: ExpenseAmountItem[],
+  plannedAppointments: PlannedAppointmentIncome[],
+  averageIncomeLastMonth: number,
 ) {
   const today = parseDateKey(todayKey);
 
@@ -282,11 +282,13 @@ function buildMonthlyNetTrend(
     const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
     const expenseTotal = sumInRange(expenses, from, to);
+    const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
 
     return {
       key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
       label: getMonthShortLabel(monthDate),
       value: income - expenseTotal,
+      unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
     };
   });
 }
@@ -295,6 +297,8 @@ function buildVisitsTrend(
   todayKey: string,
   mode: VisitsTrendMode,
   appointments: CompletedAppointmentIncome[],
+  plannedAppointments: PlannedAppointmentIncome[],
+  averageIncomeLastMonth: number,
 ) {
   const today = parseDateKey(todayKey);
 
@@ -303,11 +307,16 @@ function buildVisitsTrend(
       const monthDate = addMonths(new Date(today.getFullYear(), today.getMonth(), 1, 12), index - 11);
       const from = toDateKey(monthDate);
       const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
+      const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
 
       return {
         key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
         label: getMonthShortLabel(monthDate),
-        value: countAppointmentsInRange(appointments, from, to),
+        value: countInRange(appointments, from, to),
+        unrealizedValue: unrealizedAppointmentCount,
+        unrealizedMeta: formatPrice(
+          Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
+        ),
       };
     });
   }
@@ -317,6 +326,7 @@ function buildVisitsTrend(
     const endOfWeek = addDays(startOfWeek, 6);
     const from = toDateKey(startOfWeek);
     const to = toDateKey(endOfWeek);
+    const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
 
     return {
       key: from,
@@ -324,36 +334,38 @@ function buildVisitsTrend(
         day: "2-digit",
         month: "2-digit",
       }).format(startOfWeek),
-      value: countAppointmentsInRange(appointments, from, to),
+      value: countInRange(appointments, from, to),
+      unrealizedValue: unrealizedAppointmentCount,
+      unrealizedMeta: formatPrice(
+        Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
+      ),
     };
   });
 }
 
 function SelectedRangeSummary({ summary }: { summary: FinancePeriodSummary }) {
   return (
-    <section className="overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_34%),linear-gradient(180deg,_#0f172a_0%,_#172033_100%)] p-5 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.7)]">
+    <section className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">
-            {summary.title}
-          </p>
-          <p className="mt-2 text-sm text-slate-300">{summary.dateLabel}</p>
-          <p className="mt-4 text-4xl font-semibold text-white">
+          <p className="text-sm font-semibold text-slate-900">{summary.title}</p>
+          <p className="mt-1 text-sm text-slate-500">{summary.dateLabel}</p>
+          <p className="mt-3 text-3xl font-semibold text-slate-950">
             {formatPrice(summary.profit)}
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             summary.profit >= 0
-              ? "bg-emerald-400/15 text-emerald-200"
-              : "bg-rose-400/15 text-rose-200"
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-rose-100 text-rose-700"
           }`}
         >
           Netto
         </span>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="mt-5 grid grid-cols-2 gap-3">
         <MetricTile label="Przychód" value={formatPrice(summary.income)} tone="good" />
         <MetricTile label="Wydatki" value={formatPrice(summary.expenses)} tone="bad" />
         <MetricTile label="Wizyty" value={summary.appointmentCount} />
@@ -380,66 +392,73 @@ function ProjectionRow({
   maxTotal: number;
   averageIncomeLastMonth: number;
 }) {
-  const earnedWidth = item.totalIncome > 0 ? (item.earnedIncome / maxTotal) * 100 : 0;
-  const projectedWidth =
-    item.totalIncome > 0 ? (item.projectedIncome / maxTotal) * 100 : 0;
-  const hasEarnedValue = item.earnedIncome > 0;
+  const earnedWidth = item.earnedIncome > 0 ? (item.earnedIncome / maxTotal) * 100 : 0;
+  const unrealizedWidth =
+    item.unrealizedIncome > 0 ? (item.unrealizedIncome / maxTotal) * 100 : 0;
+  const markerLeft =
+    item.estimatedIncome > 0 ? Math.min(100, (item.estimatedIncome / maxTotal) * 100) : 0;
   const showEarnedMetric = item.mode === "mixed";
+  const showEstimateMarker =
+    item.mode === "mixed" && item.estimatedIncome > 0 && item.earnedIncome > item.estimatedIncome;
 
   return (
-    <article className="overflow-hidden rounded-[26px] border border-white/12 bg-white/8 px-4 py-4 backdrop-blur-sm">
+    <article className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-white">{item.label}</p>
-          <p className="mt-1 text-xs text-slate-300">{formatRangeLabel(item.from, item.to)}</p>
+          <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+          <p className="mt-1 text-xs text-slate-500">{formatRangeLabel(item.from, item.to)}</p>
         </div>
-        <div className="rounded-full bg-white/10 px-3 py-1 text-right">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Razem</p>
-          <p className="text-sm font-semibold text-white">{formatPrice(item.totalIncome)}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
-        <div className="flex h-full">
-          {hasEarnedValue ? (
-            <div
-              className="h-full rounded-l-full bg-emerald-300"
-              style={{ width: `${earnedWidth}%` }}
-            />
-          ) : null}
-          {item.projectedIncome > 0 ? (
-            <div
-              className={`h-full ${hasEarnedValue ? "rounded-r-full" : "rounded-full"} bg-sky-300`}
-              style={{ width: `${projectedWidth}%` }}
-            />
-          ) : null}
-        </div>
-      </div>
-
-      <div
-        className={`mt-4 grid gap-3 text-xs ${
-          showEarnedMetric ? "grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        {showEarnedMetric ? (
-          <div className="rounded-2xl bg-black/15 px-3 py-3 text-slate-200">
-            <p className="uppercase tracking-[0.16em] text-slate-400">Zarobione</p>
-            <p className="mt-1 text-sm font-semibold text-white">
-              {formatPrice(item.earnedIncome)}
-            </p>
-          </div>
-        ) : null}
-        <div className="rounded-2xl bg-black/15 px-3 py-3 text-slate-200">
-          <p className="uppercase tracking-[0.16em] text-slate-400">Szacowane</p>
-          <p className="mt-1 text-sm font-semibold text-white">
-            {formatPrice(item.projectedIncome)}
+        <div className="text-right">
+          <p className="text-sm font-semibold text-slate-950">{formatPrice(item.totalIncome)}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Plan: {formatPrice(item.estimatedIncome)}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-300">
-        <span>{item.projectedAppointmentCount} zaplanowanych wizyt</span>
-        <span>Śr. z miesiąca: {formatPrice(averageIncomeLastMonth)}</span>
+      <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-white">
+        <div className="flex h-full">
+          {item.earnedIncome > 0 ? (
+            <div
+              className="h-full rounded-l-full bg-slate-950"
+              style={{ width: `${earnedWidth}%` }}
+            />
+          ) : null}
+          {item.unrealizedIncome > 0 ? (
+            <div
+              className={`h-full ${
+                item.earnedIncome > 0 ? "rounded-r-full" : "rounded-full"
+              } bg-slate-300`}
+              style={{ width: `${unrealizedWidth}%` }}
+            />
+          ) : null}
+        </div>
+        {showEstimateMarker ? (
+          <div
+            className="absolute top-0 h-full border-l-2 border-dashed border-amber-500"
+            style={{ left: `${markerLeft}%` }}
+          />
+        ) : null}
+      </div>
+
+      <div className={`mt-3 grid gap-3 text-xs ${showEarnedMetric ? "grid-cols-2" : "grid-cols-1"}`}>
+        {showEarnedMetric ? (
+          <div>
+            <p className="text-slate-500">Zarobione</p>
+            <p className="mt-1 font-semibold text-slate-900">{formatPrice(item.earnedIncome)}</p>
+          </div>
+        ) : null}
+        <div>
+          <p className="text-slate-500">Niezrealizowane</p>
+          <p className="mt-1 font-semibold text-slate-900">
+            {formatPrice(item.unrealizedIncome)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+        <span>{item.unrealizedAppointmentCount} niezrealizowanych wizyt</span>
+        <span>Śr. wizyta: {formatPrice(averageIncomeLastMonth)}</span>
       </div>
     </article>
   );
@@ -447,28 +466,27 @@ function ProjectionRow({
 
 function ProjectedEarningsCard({ projected }: { projected: FinanceSummary["projected"] }) {
   const items = [projected.currentWeek, projected.nextWeek, projected.currentMonth];
-  const maxTotal = Math.max(1, ...items.map((item) => item.totalIncome));
+  const maxTotal = Math.max(
+    1,
+    ...items.map((item) => Math.max(item.totalIncome, item.earnedIncome, item.estimatedIncome)),
+  );
 
   return (
-    <section className="overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.2),_transparent_30%),linear-gradient(180deg,_#111827_0%,_#182235_100%)] p-5 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.8)]">
-      <div className="flex items-start justify-between gap-4">
+    <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">
-            Prognoza
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Plan przychodów</h2>
+          <p className="text-sm font-semibold text-slate-900">Prognoza</p>
+          <p className="mt-1 text-xs text-slate-500">Plan przychodów</p>
         </div>
-        <div className="rounded-[22px] border border-white/10 bg-white/8 px-4 py-3 text-right backdrop-blur-sm">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">
-            Średnia wizyta
-          </p>
-          <p className="mt-1 text-xl font-semibold text-white">
+        <div className="rounded-2xl bg-slate-50 px-3 py-2 text-right">
+          <p className="text-xs text-slate-500">Średnia wizyta</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">
             {formatPrice(projected.averageIncomeLastMonth)}
           </p>
         </div>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="space-y-3">
         {items.map((item) => (
           <ProjectionRow
             key={item.label}
@@ -478,6 +496,16 @@ function ProjectedEarningsCard({ projected }: { projected: FinanceSummary["proje
           />
         ))}
       </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-slate-950 px-3 py-1 text-white">Zarobione</span>
+        <span className="rounded-full bg-slate-200 px-3 py-1 text-slate-700">
+          Niezrealizowane
+        </span>
+        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+          Przerywana linia = plan
+        </span>
+      </div>
     </section>
   );
 }
@@ -485,51 +513,74 @@ function ProjectedEarningsCard({ projected }: { projected: FinanceSummary["proje
 function TrendRows({
   points,
   formatter,
-  positiveColorClass,
+  showUnrealized,
+  primaryColorClass,
+  secondaryColorClass,
   negativeColorClass,
 }: {
   points: TrendPoint[];
   formatter: (value: number) => string;
-  positiveColorClass: string;
+  showUnrealized: boolean;
+  primaryColorClass: string;
+  secondaryColorClass: string;
   negativeColorClass?: string;
 }) {
-  const maxValue = Math.max(1, ...points.map((point) => Math.abs(point.value)));
+  const maxValue = Math.max(
+    1,
+    ...points.map((point) =>
+      Math.abs(point.value) + (showUnrealized ? Math.abs(point.unrealizedValue) : 0),
+    ),
+  );
 
   return (
     <div className="space-y-3">
       {points.map((point) => {
-        const barWidth =
+        const totalValue = point.value + (showUnrealized ? point.unrealizedValue : 0);
+        const primaryWidth =
           point.value === 0 ? 0 : Math.max(6, (Math.abs(point.value) / maxValue) * 100);
-        const barClassName =
-          point.value >= 0 ? positiveColorClass : negativeColorClass ?? positiveColorClass;
+        const secondaryWidth =
+          showUnrealized && point.unrealizedValue > 0
+            ? Math.max(6, (Math.abs(point.unrealizedValue) / maxValue) * 100)
+            : 0;
+        const primaryClassName =
+          point.value >= 0 ? primaryColorClass : negativeColorClass ?? primaryColorClass;
 
         return (
-          <div
-            key={point.key}
-            className="rounded-[22px] border border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur-sm"
-          >
+          <div key={point.key} className="space-y-1.5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                {point.label}
-              </p>
+              <p className="text-xs font-semibold text-slate-700">{point.label}</p>
               <p
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  point.value >= 0
-                    ? "bg-emerald-50 text-slate-900"
-                    : "bg-rose-50 text-rose-700"
+                className={`text-xs font-semibold ${
+                  totalValue >= 0 ? "text-slate-900" : "text-rose-700"
                 }`}
               >
-                {formatter(point.value)}
+                {formatter(totalValue)}
               </p>
             </div>
-            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-              {point.value !== 0 ? (
-                <div
-                  className={`h-full rounded-full ${barClassName}`}
-                  style={{ width: `${barWidth}%` }}
-                />
-              ) : null}
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="flex h-full">
+                {point.value !== 0 ? (
+                  <div
+                    className={`h-full ${showUnrealized ? "rounded-l-full" : "rounded-full"} ${primaryClassName}`}
+                    style={{ width: `${primaryWidth}%` }}
+                  />
+                ) : null}
+                {showUnrealized && point.unrealizedValue > 0 ? (
+                  <div
+                    className={`h-full ${
+                      point.value !== 0 ? "rounded-r-full" : "rounded-full"
+                    } ${secondaryColorClass}`}
+                    style={{ width: `${secondaryWidth}%` }}
+                  />
+                ) : null}
+              </div>
             </div>
+            {showUnrealized && point.unrealizedValue > 0 ? (
+              <p className="text-xs text-slate-500">
+                Niezrealizowane: {formatter(point.unrealizedValue)}
+                {point.unrealizedMeta ? `, ${point.unrealizedMeta}` : ""}
+              </p>
+            ) : null}
           </div>
         );
       })}
@@ -537,28 +588,62 @@ function TrendRows({
   );
 }
 
+function ShowUnrealizedButton({
+  showUnrealized,
+  onClick,
+}: {
+  showUnrealized: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
+        showUnrealized
+          ? "bg-slate-950 text-white"
+          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+      }`}
+    >
+      {showUnrealized ? "Ukryj niezrealizowane" : "Pokaż niezrealizowane"}
+    </button>
+  );
+}
+
 function TrendBars({
   title,
   points,
   formatter,
-  positiveColorClass,
+  showUnrealized,
+  onToggleUnrealized,
+  primaryColorClass,
+  secondaryColorClass,
   negativeColorClass,
 }: {
   title: string;
   points: TrendPoint[];
   formatter: (value: number) => string;
-  positiveColorClass: string;
+  showUnrealized: boolean;
+  onToggleUnrealized: () => void;
+  primaryColorClass: string;
+  secondaryColorClass: string;
   negativeColorClass?: string;
 }) {
   return (
-    <section className="space-y-4 rounded-[30px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,1),_rgba(248,250,252,1)_50%,_rgba(226,232,240,0.55)_100%)] p-5 shadow-[0_20px_60px_-32px_rgba(15,23,42,0.3)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-        {title}
-      </p>
+    <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-900">{title}</p>
+        <ShowUnrealizedButton
+          showUnrealized={showUnrealized}
+          onClick={onToggleUnrealized}
+        />
+      </div>
       <TrendRows
         points={points}
         formatter={formatter}
-        positiveColorClass={positiveColorClass}
+        showUnrealized={showUnrealized}
+        primaryColorClass={primaryColorClass}
+        secondaryColorClass={secondaryColorClass}
         negativeColorClass={negativeColorClass}
       />
     </section>
@@ -569,6 +654,8 @@ export default function MoneyExperience({ summary }: Props) {
   const [selectedRange, setSelectedRange] = useState<RangeKey>("month");
   const [rangeOffset, setRangeOffset] = useState(0);
   const [visitsTrendMode, setVisitsTrendMode] = useState<VisitsTrendMode>("month");
+  const [showUnrealizedNet, setShowUnrealizedNet] = useState(false);
+  const [showUnrealizedVisits, setShowUnrealizedVisits] = useState(false);
 
   const selectedSummary = getSelectedRangeSummary(
     summary.todayKey,
@@ -581,11 +668,15 @@ export default function MoneyExperience({ summary }: Props) {
     summary.todayKey,
     summary.completedAppointments,
     summary.expenseItems,
+    summary.plannedAppointments,
+    summary.projected.averageIncomeLastMonth,
   );
   const visitsTrend = buildVisitsTrend(
     summary.todayKey,
     visitsTrendMode,
     summary.completedAppointments,
+    summary.plannedAppointments,
+    summary.projected.averageIncomeLastMonth,
   );
 
   return (
@@ -641,47 +732,58 @@ export default function MoneyExperience({ summary }: Props) {
         title="Netto miesiąc po miesiącu"
         points={monthlyNetTrend}
         formatter={(value) => formatPrice(value)}
-        positiveColorClass="bg-emerald-500"
+        showUnrealized={showUnrealizedNet}
+        onToggleUnrealized={() =>
+          setShowUnrealizedNet((currentValue) => !currentValue)
+        }
+        primaryColorClass="bg-slate-950"
+        secondaryColorClass="bg-slate-300"
         negativeColorClass="bg-rose-400"
       />
 
-      <section className="space-y-4 rounded-[30px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(224,242,254,0.65),_rgba(255,255,255,1)_55%)] p-5 shadow-[0_20px_60px_-32px_rgba(15,23,42,0.25)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Wizyty
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setVisitsTrendMode("month")}
-              className={`rounded-xl px-3 py-2 transition ${
-                visitsTrendMode === "month"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-600"
-              }`}
-            >
-              Miesiące
-            </button>
-            <button
-              type="button"
-              onClick={() => setVisitsTrendMode("week")}
-              className={`rounded-xl px-3 py-2 transition ${
-                visitsTrendMode === "week"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-600"
-              }`}
-            >
-              Tygodnie
-            </button>
+      <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-900">Wizyty</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <ShowUnrealizedButton
+              showUnrealized={showUnrealizedVisits}
+              onClick={() =>
+                setShowUnrealizedVisits((currentValue) => !currentValue)
+              }
+            />
+            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setVisitsTrendMode("month")}
+                className={`rounded-xl px-3 py-2 transition ${
+                  visitsTrendMode === "month"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600"
+                }`}
+              >
+                Miesiące
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisitsTrendMode("week")}
+                className={`rounded-xl px-3 py-2 transition ${
+                  visitsTrendMode === "week"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600"
+                }`}
+              >
+                Tygodnie
+              </button>
+            </div>
           </div>
         </div>
 
         <TrendRows
           points={visitsTrend}
           formatter={(value) => String(value)}
-          positiveColorClass="bg-sky-500"
+          showUnrealized={showUnrealizedVisits}
+          primaryColorClass="bg-slate-950"
+          secondaryColorClass="bg-slate-300"
         />
       </section>
 
