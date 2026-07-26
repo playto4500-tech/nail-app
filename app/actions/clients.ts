@@ -11,21 +11,22 @@ import {
 export async function createClientAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const instagramHandle = String(formData.get("instagramHandle") ?? "").trim();
-  const status = String(formData.get("status") ?? "new");
+  const isFamilyType = String(formData.get("clientType") ?? "") === "family";
   const notes = String(formData.get("notes") ?? "").trim();
 
-  if (!name || (status !== "regular" && status !== "new")) {
+  if (!name) {
     return;
   }
 
   await createClientRecord({
     name,
     instagramHandle,
-    status,
+    status: isFamilyType ? "family" : "new",
     notes,
   });
 
   revalidatePath("/clients");
+  revalidatePath("/appointments-test");
   revalidatePath("/appointments/new");
 }
 
@@ -33,10 +34,10 @@ export async function updateClientAction(formData: FormData): Promise<ActionResu
   const id = Number(formData.get("clientId") ?? 0);
   const name = String(formData.get("name") ?? "").trim();
   const instagramHandle = String(formData.get("instagramHandle") ?? "").trim();
-  const status = String(formData.get("status") ?? "new");
+  const isFamilyType = String(formData.get("clientType") ?? "") === "family";
   const notes = String(formData.get("notes") ?? "").trim();
 
-  if (!id || !name || (status !== "regular" && status !== "new")) {
+  if (!id || !name) {
     return actionError("Uzupełnij poprawnie dane klientki.");
   }
 
@@ -45,7 +46,7 @@ export async function updateClientAction(formData: FormData): Promise<ActionResu
       id,
       name,
       instagramHandle,
-      status,
+      status: isFamilyType ? "family" : "new",
       notes,
     });
   } catch (error) {
@@ -56,6 +57,7 @@ export async function updateClientAction(formData: FormData): Promise<ActionResu
 
   revalidatePath("/clients");
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/appointments/new");
 
   return actionOk();
@@ -78,6 +80,7 @@ export async function deleteClientAction(formData: FormData): Promise<ActionResu
 
   revalidatePath("/clients");
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/appointments/new");
 
   return actionOk();

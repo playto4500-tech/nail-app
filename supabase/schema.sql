@@ -2,7 +2,7 @@ create table if not exists public.clients (
   id bigint generated always as identity primary key,
   name text not null,
   instagram_handle text unique,
-  status text not null check (status in ('regular', 'new')),
+  status text not null check (status in ('regular', 'new', 'family')),
   notes text,
   created_at timestamptz not null default now()
 );
@@ -78,7 +78,7 @@ create policy "Anyone can insert clients"
 on public.clients
 for insert
 to anon, authenticated
-with check (char_length(name) > 0 and status in ('regular', 'new'));
+with check (char_length(name) > 0 and status in ('regular', 'new', 'family'));
 
 drop policy if exists "Anyone can update clients" on public.clients;
 create policy "Anyone can update clients"
@@ -86,7 +86,7 @@ on public.clients
 for update
 to anon, authenticated
 using (true)
-with check (char_length(name) > 0 and status in ('regular', 'new'));
+with check (char_length(name) > 0 and status in ('regular', 'new', 'family'));
 
 drop policy if exists "Anyone can delete clients" on public.clients;
 create policy "Anyone can delete clients"

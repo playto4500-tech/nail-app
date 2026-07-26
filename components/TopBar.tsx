@@ -115,7 +115,7 @@ export default function TopBar() {
         </div>
       </header>
 
-      <div className="fixed inset-y-0 left-0 z-50 w-72 transform bg-white shadow-xl transition-transform duration-300 ease-in-out -translate-x-full peer-checked:translate-x-0">
+      <div className="fixed inset-y-0 left-0 z-50 flex w-72 transform flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out -translate-x-full peer-checked:translate-x-0">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
           <p className="text-sm font-semibold text-slate-900">Menu</p>
           <label
@@ -126,20 +126,7 @@ export default function TopBar() {
             ✕
           </label>
         </div>
-        <div className="border-b border-slate-200 px-4 py-4">
-          <label className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-            <span className="text-sm font-semibold text-slate-900">
-              Pokaż strony testowe
-            </span>
-            <input
-              type="checkbox"
-              checked={showTestPages}
-              onChange={(event) => setShowTestPages(event.target.checked)}
-              className="h-5 w-5 accent-slate-950"
-            />
-          </label>
-        </div>
-        <nav className="space-y-2 p-4">
+        <nav className="flex-1 space-y-2 overflow-y-auto p-4">
           {visibleNavigationItems.map((item) => {
             const isActive = isItemActive(item.href);
 
@@ -160,6 +147,19 @@ export default function TopBar() {
             );
           })}
         </nav>
+        <div className="border-t border-slate-200 px-4 py-4">
+          <label className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-900">
+              Pokaż strony testowe
+            </span>
+            <input
+              type="checkbox"
+              checked={showTestPages}
+              onChange={(event) => setShowTestPages(event.target.checked)}
+              className="h-5 w-5 accent-slate-950"
+            />
+          </label>
+        </div>
       </div>
 
       <label htmlFor="topbar-menu-toggle" className="fixed inset-0 z-40 hidden bg-slate-900/30 peer-checked:block" />

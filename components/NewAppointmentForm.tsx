@@ -10,6 +10,7 @@ import {
   getAppointmentConflictMessage,
   getAppointmentConflicts,
 } from "../lib/ui/appointment-conflicts";
+import { getClientClassificationLabel } from "../lib/ui/clients";
 import { getQuarterHourTimeOptions } from "../lib/utils/date";
 
 type Props = {
@@ -173,6 +174,16 @@ export default function NewAppointmentForm({
               className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
             />
           </label>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <input
+              name="clientType"
+              type="checkbox"
+              value="family"
+              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+            />
+            <span className="text-sm font-medium text-slate-700">Rodzina</span>
+          </label>
         </>
       ) : (
         <>
@@ -220,6 +231,7 @@ export default function NewAppointmentForm({
                     {clientSortMode === "visitCount"
                       ? ` (${getClientVisitCount(client, appointments)})`
                       : ""}
+                    {` · ${getClientClassificationLabel(client.classification)}`}
                   </option>
                 ))
               )}
@@ -229,6 +241,12 @@ export default function NewAppointmentForm({
           {selectedClient ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               <p className="font-medium text-slate-900">{selectedClient.name}</p>
+              <p className="mt-1">
+                Typ:{" "}
+                <span className="font-medium text-slate-900">
+                  {getClientClassificationLabel(selectedClient.classification)}
+                </span>
+              </p>
               {selectedClient.instagramHandle ? (
                 <p className="mt-1">
                   Instagram:{" "}

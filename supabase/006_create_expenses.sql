@@ -16,7 +16,7 @@ on public.clients
 for update
 to anon, authenticated
 using (true)
-with check (char_length(name) > 0 and status in ('regular', 'new'));
+with check (char_length(name) > 0 and status in ('regular', 'new', 'family'));
 
 drop policy if exists "Anyone can delete clients" on public.clients;
 create policy "Anyone can delete clients"

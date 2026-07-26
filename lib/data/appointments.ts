@@ -10,7 +10,7 @@ export type Appointment = {
   clientId: null | number;
   clientName: string;
   clientInstagramHandle: null | string;
-  clientStatus: "regular" | "new";
+  clientStatus: ClientStatus;
   date: string;
   time: string;
   serviceId: null | number;

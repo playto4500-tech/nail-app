@@ -21,6 +21,7 @@ export async function createAppointmentAction(formData: FormData): Promise<Actio
   const instagramHandle = instagramHandleValue
     ? `@${instagramHandleValue.replace(/^@+/, "")}`
     : "";
+  const isFamilyType = String(formData.get("clientType") ?? "") === "family";
   const clientNotes = String(formData.get("clientNotes") ?? "").trim();
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
@@ -43,7 +44,7 @@ export async function createAppointmentAction(formData: FormData): Promise<Actio
     finalClientId = await createClientRecord({
       name: clientName,
       instagramHandle,
-      status: "new",
+      status: isFamilyType ? "family" : "new",
       notes: clientNotes,
     });
   } else {

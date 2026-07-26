@@ -83,16 +83,14 @@ export default async function ClientsPage() {
               />
             </label>
 
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-slate-700">Status</span>
-              <select
-                name="status"
-                defaultValue="new"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-              >
-                <option value="new">Nowa klientka</option>
-                <option value="regular">Stała klientka</option>
-              </select>
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <input
+                name="clientType"
+                type="checkbox"
+                value="family"
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+              />
+              <span className="text-sm font-medium text-slate-700">Rodzina</span>
             </label>
 
             <label className="block space-y-2">

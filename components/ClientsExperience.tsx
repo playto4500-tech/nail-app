@@ -7,6 +7,10 @@ import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
 import { useEscapeToClose } from "../lib/hooks/useEscapeToClose";
 import { formatNumericDate, formatPrice } from "../lib/ui/format";
 import type { ClientItem, ClientVisit } from "../lib/data/clients";
+import {
+  getClientClassificationClasses,
+  getClientClassificationLabel,
+} from "../lib/ui/clients";
 
 type Props = {
   clients: ClientItem[];
@@ -114,7 +118,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
     setEditState({
       name: client.name,
       instagramHandle: client.instagramHandle ?? "",
-      status: client.status,
+      status: client.status === "family" ? "family" : "new",
       notes: client.notes,
     });
   }
@@ -239,8 +243,10 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                   )}
                 </div>
 
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                  {client.status === "regular" ? "Stała klientka" : "Nowa klientka"}
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${getClientClassificationClasses(client.classification)}`}
+                >
+                  {getClientClassificationLabel(client.classification)}
                 </span>
               </div>
 
@@ -338,26 +344,25 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                 />
               </label>
 
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-slate-700">Status</span>
-                <select
-                  name="status"
-                  value={editState.status}
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <input
+                  type="checkbox"
+                  name="clientType"
+                  value="family"
+                  checked={editState.status === "family"}
                   onChange={(event) =>
                     setEditState((current) =>
                       current
                         ? {
                             ...current,
-                            status: event.target.value as ClientItem["status"],
+                            status: event.target.checked ? "family" : "new",
                           }
                         : current,
                     )
                   }
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-                >
-                  <option value="regular">Stała klientka</option>
-                  <option value="new">Nowa klientka</option>
-                </select>
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                />
+                <span className="text-sm font-medium text-slate-700">Rodzina</span>
               </label>
 
               <label className="block space-y-2">
