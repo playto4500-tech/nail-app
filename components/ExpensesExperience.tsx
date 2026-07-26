@@ -76,22 +76,19 @@ export default function ExpensesExperience({ recentExpenses }: Props) {
 
   return (
     <>
-      <section className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-        <button
-          type="button"
-          onClick={openExpenseModal}
-          className="flex w-full items-center justify-between gap-4 rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-4 text-left transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
-        >
-          <p className="text-sm font-semibold text-slate-900">Dodaj wydatek</p>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xl font-semibold text-white">
-            +
-          </span>
-        </button>
-      </section>
-
       <section className="space-y-3 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Ostatnie wydatki</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Ostatnie wydatki</p>
+          </div>
+          <button
+            type="button"
+            onClick={openExpenseModal}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xl font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            aria-label="Dodaj wydatek"
+          >
+            +
+          </button>
         </div>
 
         {actionError && !isExpenseModalOpen ? (
