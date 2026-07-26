@@ -945,25 +945,25 @@ function HorizontalTrendChart({
                   return (
                     <div
                       key={point.key}
-                      className={`grid items-center gap-2 ${
+                      className={`grid items-center ${
                         showExpenses
                           ? "grid-cols-[2.75rem_3.75rem_minmax(0,0.62fr)_1px_minmax(0,1fr)_3.75rem]"
                           : "grid-cols-[2.75rem_1px_minmax(0,1fr)_3.75rem]"
                       }`}
                     >
-                      <p className="truncate text-xs font-bold text-slate-500">
+                      <p className="truncate pr-2 text-xs font-bold text-slate-500">
                         {point.label}
                       </p>
 
                       {showExpenses ? (
                         <>
-                          <p className="text-right text-[10px] font-bold leading-none text-rose-700">
+                          <p className="pr-2 text-right text-[10px] font-bold leading-none text-rose-700">
                             {point.expenseValue > 0 ? formatter(point.expenseValue) : ""}
                           </p>
                           <div className="flex h-7 items-center justify-end">
                             {point.expenseValue > 0 ? (
                               <div
-                                className="h-4 min-w-1 rounded-md bg-rose-500"
+                                className="h-4 min-w-1 rounded-l-md bg-rose-500"
                                 style={{ width: `${expenseWidth}%` }}
                                 title={formatter(point.expenseValue)}
                               />
@@ -972,12 +972,12 @@ function HorizontalTrendChart({
                         </>
                       ) : null}
 
-                      <div className="h-8 w-px rounded-full bg-slate-300" />
+                      <div className="relative z-10 h-8 w-px rounded-full bg-slate-400" />
 
                       <div className="flex h-7 items-center">
                         {positiveTotal > 0 ? (
                           <div
-                            className="flex h-4 min-w-1 overflow-hidden rounded-md"
+                            className="flex h-4 min-w-1 overflow-hidden rounded-r-md"
                             style={{ width: `${positiveBarWidth}%` }}
                           >
                             {point.value > 0 ? (
@@ -997,7 +997,7 @@ function HorizontalTrendChart({
                           </div>
                         ) : null}
                       </div>
-                      <p className="text-[10px] font-bold leading-none text-emerald-700">
+                      <p className="pl-2 text-[10px] font-bold leading-none text-emerald-700">
                         {positiveTotal > 0 ? formatter(positiveTotal) : ""}
                       </p>
                     </div>

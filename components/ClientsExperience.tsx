@@ -307,7 +307,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
             <button
               type="button"
               onClick={() => openHistory(client.id)}
-              className="block w-full rounded-[24px] p-4 pr-16 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="block w-full rounded-[24px] p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -334,13 +334,15 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                 <p className="mt-3 text-sm text-slate-600">{client.notes}</p>
               ) : null}
 
-              <p className="mt-3 text-sm font-medium text-slate-500">
-                Poprzednie wizyty:{" "}
-                <span className="text-slate-900">{visitCount}</span>
-              </p>
-              <p className="mt-2 text-xs font-medium text-slate-400">
-                {formatLastVisitLabel(lastVisitDaysAgo)}
-              </p>
+              <div className="pr-14">
+                <p className="mt-3 text-sm font-medium text-slate-500">
+                  Poprzednie wizyty:{" "}
+                  <span className="text-slate-900">{visitCount}</span>
+                </p>
+                <p className="mt-2 text-xs font-medium text-slate-400">
+                  {formatLastVisitLabel(lastVisitDaysAgo)}
+                </p>
+              </div>
             </button>
 
             <button
