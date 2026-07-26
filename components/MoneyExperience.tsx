@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import ExpensesExperience from "./ExpensesExperience";
 import type {
   CompletedAppointmentIncome,
@@ -35,7 +35,6 @@ type TrendPoint = {
   label: string;
   value: number;
   unrealizedValue: number;
-  unrealizedMeta?: string;
 };
 
 const rangeOptions: Array<{ key: RangeKey; label: string }> = [
@@ -310,22 +309,51 @@ function getSelectedRangeSummary(
   );
 }
 
-function buildMonthlyNetTrend(
+function buildNetTrend(
   todayKey: string,
+  mode: VisitsTrendMode,
   incomes: CompletedAppointmentIncome[],
   expenses: ExpenseAmountItem[],
   plannedAppointments: PlannedAppointmentIncome[],
   averageIncomeLastMonth: number,
   includeUnrealized: boolean,
 ) {
+  if (mode === "week") {
+    const latestWeekStartDate = getLatestWeekStartDate(
+      todayKey,
+      plannedAppointments,
+      includeUnrealized,
+    );
+
+    return Array.from({ length: 10 }, (_, index) => {
+      const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
+      const endOfWeek = addDays(startOfWeek, 6);
+      const from = toDateKey(startOfWeek);
+      const to = toDateKey(endOfWeek);
+      const income = sumInRange(incomes, from, to);
+      const expenseTotal = sumInRange(expenses, from, to);
+      const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
+
+      return {
+        key: from,
+        label: new Intl.DateTimeFormat("pl-PL", {
+          day: "2-digit",
+          month: "2-digit",
+        }).format(startOfWeek),
+        value: income - expenseTotal,
+        unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
+      };
+    });
+  }
+
   const latestMonthDate = getLatestMonthDate(
     todayKey,
     plannedAppointments,
     includeUnrealized,
   );
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const monthDate = addMonths(latestMonthDate, index - 11);
+  return Array.from({ length: 10 }, (_, index) => {
+    const monthDate = addMonths(latestMonthDate, index - 9);
     const from = toDateKey(monthDate);
     const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
@@ -346,7 +374,6 @@ function buildVisitsTrend(
   mode: VisitsTrendMode,
   appointments: CompletedAppointmentIncome[],
   plannedAppointments: PlannedAppointmentIncome[],
-  averageIncomeLastMonth: number,
   includeUnrealized: boolean,
 ) {
   if (mode === "month") {
@@ -356,8 +383,8 @@ function buildVisitsTrend(
       includeUnrealized,
     );
 
-    return Array.from({ length: 12 }, (_, index) => {
-      const monthDate = addMonths(latestMonthDate, index - 11);
+    return Array.from({ length: 10 }, (_, index) => {
+      const monthDate = addMonths(latestMonthDate, index - 9);
       const from = toDateKey(monthDate);
       const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
       const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
@@ -367,9 +394,6 @@ function buildVisitsTrend(
         label: getMonthShortLabel(monthDate),
         value: countInRange(appointments, from, to),
         unrealizedValue: unrealizedAppointmentCount,
-        unrealizedMeta: formatPrice(
-          Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
-        ),
       };
     });
   }
@@ -380,8 +404,8 @@ function buildVisitsTrend(
     includeUnrealized,
   );
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const startOfWeek = addDays(latestWeekStartDate, (index - 11) * 7);
+  return Array.from({ length: 10 }, (_, index) => {
+    const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
     const endOfWeek = addDays(startOfWeek, 6);
     const from = toDateKey(startOfWeek);
     const to = toDateKey(endOfWeek);
@@ -395,9 +419,6 @@ function buildVisitsTrend(
       }).format(startOfWeek),
       value: countInRange(appointments, from, to),
       unrealizedValue: unrealizedAppointmentCount,
-      unrealizedMeta: formatPrice(
-        Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
-      ),
     };
   });
 }
@@ -637,7 +658,6 @@ function TrendRows({
             {showUnrealized && point.unrealizedValue > 0 ? (
               <p className="text-xs text-slate-500">
                 Niezrealizowane: {formatter(point.unrealizedValue)}
-                {point.unrealizedMeta ? `, ${point.unrealizedMeta}` : ""}
               </p>
             ) : null}
           </div>
@@ -680,6 +700,7 @@ function TrendBars({
   primaryColorClass,
   secondaryColorClass,
   negativeColorClass,
+  children,
 }: {
   title: string;
   points: TrendPoint[];
@@ -689,6 +710,7 @@ function TrendBars({
   primaryColorClass: string;
   secondaryColorClass: string;
   negativeColorClass?: string;
+  children?: ReactNode;
 }) {
   return (
     <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
@@ -700,6 +722,7 @@ function TrendBars({
           className="shrink-0"
         />
       </div>
+      {children ? <div>{children}</div> : null}
       <TrendRows
         points={points}
         formatter={formatter}
@@ -715,6 +738,7 @@ function TrendBars({
 export default function MoneyExperience({ summary }: Props) {
   const [selectedRange, setSelectedRange] = useState<RangeKey>("month");
   const [rangeOffset, setRangeOffset] = useState(0);
+  const [netTrendMode, setNetTrendMode] = useState<VisitsTrendMode>("month");
   const [visitsTrendMode, setVisitsTrendMode] = useState<VisitsTrendMode>("month");
   const [showUnrealizedNet, setShowUnrealizedNet] = useState(false);
   const [showUnrealizedVisits, setShowUnrealizedVisits] = useState(false);
@@ -726,8 +750,9 @@ export default function MoneyExperience({ summary }: Props) {
     summary.completedAppointments,
     summary.expenseItems,
   );
-  const monthlyNetTrend = buildMonthlyNetTrend(
+  const netTrend = buildNetTrend(
     summary.todayKey,
+    netTrendMode,
     summary.completedAppointments,
     summary.expenseItems,
     summary.plannedAppointments,
@@ -739,7 +764,6 @@ export default function MoneyExperience({ summary }: Props) {
     visitsTrendMode,
     summary.completedAppointments,
     summary.plannedAppointments,
-    summary.projected.averageIncomeLastMonth,
     showUnrealizedVisits,
   );
 
@@ -793,8 +817,8 @@ export default function MoneyExperience({ summary }: Props) {
       <SelectedRangeSummary summary={selectedSummary} />
       <ProjectedEarningsCard projected={summary.projected} />
       <TrendBars
-        title="Netto miesiąc po miesiącu"
-        points={monthlyNetTrend}
+        title="Zysk netto"
+        points={netTrend}
         formatter={(value) => formatPrice(value)}
         showUnrealized={showUnrealizedNet}
         onToggleUnrealized={() =>
@@ -803,7 +827,28 @@ export default function MoneyExperience({ summary }: Props) {
         primaryColorClass="bg-slate-950"
         secondaryColorClass="bg-slate-300"
         negativeColorClass="bg-rose-400"
-      />
+      >
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setNetTrendMode("month")}
+            className={`rounded-xl px-3 py-2 transition ${
+              netTrendMode === "month" ? "bg-slate-950 text-white" : "text-slate-600"
+            }`}
+          >
+            Miesiące
+          </button>
+          <button
+            type="button"
+            onClick={() => setNetTrendMode("week")}
+            className={`rounded-xl px-3 py-2 transition ${
+              netTrendMode === "week" ? "bg-slate-950 text-white" : "text-slate-600"
+            }`}
+          >
+            Tygodnie
+          </button>
+        </div>
+      </TrendBars>
 
       <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
         <div className="flex items-start justify-between gap-3">

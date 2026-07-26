@@ -40,7 +40,6 @@ type TrendPoint = {
   label: string;
   value: number;
   unrealizedValue: number;
-  unrealizedMeta?: string;
 };
 
 const rangeOptions: Array<{ key: RangeKey; label: string }> = [
@@ -289,22 +288,51 @@ function getSelectedRangeSummary(
   return createPeriodSummary("Rok", String(yearDate.getFullYear()), incomes, expenses, from, to);
 }
 
-function buildMonthlyNetTrend(
+function buildNetTrend(
   todayKey: string,
+  mode: VisitsTrendMode,
   incomes: CompletedAppointmentIncome[],
   expenses: ExpenseAmountItem[],
   plannedAppointments: PlannedAppointmentIncome[],
   averageIncomeLastMonth: number,
   includeUnrealized: boolean,
 ) {
+  if (mode === "week") {
+    const latestWeekStartDate = getLatestWeekStartDate(
+      todayKey,
+      plannedAppointments,
+      includeUnrealized,
+    );
+
+    return Array.from({ length: 10 }, (_, index) => {
+      const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
+      const endOfWeek = addDays(startOfWeek, 6);
+      const from = toDateKey(startOfWeek);
+      const to = toDateKey(endOfWeek);
+      const income = sumInRange(incomes, from, to);
+      const expenseTotal = sumInRange(expenses, from, to);
+      const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
+
+      return {
+        key: from,
+        label: new Intl.DateTimeFormat("pl-PL", {
+          day: "2-digit",
+          month: "2-digit",
+        }).format(startOfWeek),
+        value: income - expenseTotal,
+        unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
+      };
+    });
+  }
+
   const latestMonthDate = getLatestMonthDate(
     todayKey,
     plannedAppointments,
     includeUnrealized,
   );
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const monthDate = addMonths(latestMonthDate, index - 11);
+  return Array.from({ length: 10 }, (_, index) => {
+    const monthDate = addMonths(latestMonthDate, index - 9);
     const from = toDateKey(monthDate);
     const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
@@ -325,7 +353,6 @@ function buildVisitsTrend(
   mode: VisitsTrendMode,
   appointments: CompletedAppointmentIncome[],
   plannedAppointments: PlannedAppointmentIncome[],
-  averageIncomeLastMonth: number,
   includeUnrealized: boolean,
 ) {
   if (mode === "month") {
@@ -335,8 +362,8 @@ function buildVisitsTrend(
       includeUnrealized,
     );
 
-    return Array.from({ length: 12 }, (_, index) => {
-      const monthDate = addMonths(latestMonthDate, index - 11);
+    return Array.from({ length: 10 }, (_, index) => {
+      const monthDate = addMonths(latestMonthDate, index - 9);
       const from = toDateKey(monthDate);
       const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
       const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
@@ -346,9 +373,6 @@ function buildVisitsTrend(
         label: getMonthShortLabel(monthDate),
         value: countInRange(appointments, from, to),
         unrealizedValue: unrealizedAppointmentCount,
-        unrealizedMeta: formatPrice(
-          Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
-        ),
       };
     });
   }
@@ -359,8 +383,8 @@ function buildVisitsTrend(
     includeUnrealized,
   );
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const startOfWeek = addDays(latestWeekStartDate, (index - 11) * 7);
+  return Array.from({ length: 10 }, (_, index) => {
+    const startOfWeek = addDays(latestWeekStartDate, (index - 9) * 7);
     const endOfWeek = addDays(startOfWeek, 6);
     const from = toDateKey(startOfWeek);
     const to = toDateKey(endOfWeek);
@@ -374,9 +398,6 @@ function buildVisitsTrend(
       }).format(startOfWeek),
       value: countInRange(appointments, from, to),
       unrealizedValue: unrealizedAppointmentCount,
-      unrealizedMeta: formatPrice(
-        Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
-      ),
     };
   });
 }
@@ -819,7 +840,6 @@ function TrendRows({
             {showUnrealized && point.unrealizedValue > 0 ? (
               <p className="mt-1.5 text-xs text-slate-500">
                 Niezrealizowane: {formatter(point.unrealizedValue)}
-                {point.unrealizedMeta ? `, ${point.unrealizedMeta}` : ""}
               </p>
             ) : null}
           </div>
@@ -831,7 +851,6 @@ function TrendRows({
 
 function TrendPanel({
   title,
-  subtitle,
   points,
   formatter,
   showUnrealized,
@@ -842,7 +861,6 @@ function TrendPanel({
   negativeClassName,
 }: {
   title: string;
-  subtitle: string;
   points: TrendPoint[];
   formatter: (value: number) => string;
   showUnrealized: boolean;
@@ -857,7 +875,6 @@ function TrendPanel({
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-900">{title}</p>
-          <p className="mt-1 text-xs font-medium text-slate-500">{subtitle}</p>
         </div>
         <ShowUnrealizedToggle showUnrealized={showUnrealized} onClick={onToggleUnrealized} />
       </div>
@@ -1157,6 +1174,7 @@ function CalendarIcon() {
 export default function MoneyTestExperience({ summary }: Props) {
   const [selectedRange, setSelectedRange] = useState<RangeKey>("month");
   const [rangeOffset, setRangeOffset] = useState(0);
+  const [netTrendMode, setNetTrendMode] = useState<VisitsTrendMode>("month");
   const [visitsTrendMode, setVisitsTrendMode] = useState<VisitsTrendMode>("month");
   const [showUnrealizedNet, setShowUnrealizedNet] = useState(true);
   const [showUnrealizedVisits, setShowUnrealizedVisits] = useState(true);
@@ -1168,8 +1186,9 @@ export default function MoneyTestExperience({ summary }: Props) {
     summary.completedAppointments,
     summary.expenseItems,
   );
-  const monthlyNetTrend = buildMonthlyNetTrend(
+  const netTrend = buildNetTrend(
     summary.todayKey,
+    netTrendMode,
     summary.completedAppointments,
     summary.expenseItems,
     summary.plannedAppointments,
@@ -1181,7 +1200,6 @@ export default function MoneyTestExperience({ summary }: Props) {
     visitsTrendMode,
     summary.completedAppointments,
     summary.plannedAppointments,
-    summary.projected.averageIncomeLastMonth,
     showUnrealizedVisits,
   );
   const expenseRatio = getPercent(selectedSummary.expenses, selectedSummary.income);
@@ -1203,10 +1221,6 @@ export default function MoneyTestExperience({ summary }: Props) {
             <h1 className="mt-4 text-3xl font-bold tracking-normal text-slate-950 sm:text-4xl">
               Pieniądze TEST
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
-              Ten sam backend finansów, ale układ przetestowany jako dashboard: metryki, zakres,
-              prognoza, trendy i wydatki na jednej roboczej planszy.
-            </p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:min-w-72">
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -1277,9 +1291,8 @@ export default function MoneyTestExperience({ summary }: Props) {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <TrendPanel
-          title="Netto miesiąc po miesiącu"
-          subtitle="Zysk po kosztach z opcjonalnym planem niezrealizowanych wizyt"
-          points={monthlyNetTrend}
+          title="Zysk netto"
+          points={netTrend}
           formatter={(value) => formatPrice(value)}
           showUnrealized={showUnrealizedNet}
           onToggleUnrealized={() =>
@@ -1288,11 +1301,16 @@ export default function MoneyTestExperience({ summary }: Props) {
           primaryClassName="bg-slate-950"
           secondaryClassName="bg-blue-300"
           negativeClassName="bg-rose-500"
-        />
+        >
+          <SegmentedControl
+            options={trendModes}
+            value={netTrendMode}
+            onChange={setNetTrendMode}
+          />
+        </TrendPanel>
 
         <TrendPanel
           title="Wizyty"
-          subtitle="Wolumen wizyt w ujęciu miesięcznym lub tygodniowym"
           points={visitsTrend}
           formatter={(value) => String(value)}
           showUnrealized={showUnrealizedVisits}

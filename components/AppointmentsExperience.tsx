@@ -71,6 +71,30 @@ function getDisplayAppointment(
   };
 }
 
+function getDaysBetweenDateKeys(fromDateKey: string, toDateKey: string) {
+  const fromDate = new Date(`${fromDateKey}T12:00:00`);
+  const toDate = new Date(`${toDateKey}T12:00:00`);
+  const dayInMs = 1000 * 60 * 60 * 24;
+
+  return Math.max(0, Math.round((toDate.getTime() - fromDate.getTime()) / dayInMs));
+}
+
+function formatLastVisitLabel(daysAgo: null | number) {
+  if (daysAgo === null) {
+    return "Ostatnia wizyta: brak historii";
+  }
+
+  if (daysAgo === 0) {
+    return "Ostatnia wizyta: dzisiaj";
+  }
+
+  if (daysAgo === 1) {
+    return "Ostatnia wizyta: 1 dzień temu";
+  }
+
+  return `Ostatnia wizyta: ${daysAgo} dni temu`;
+}
+
 export default function AppointmentsExperience({
   appointments,
   clients,
@@ -103,6 +127,35 @@ export default function AppointmentsExperience({
     () => getEndOfMonthDateKey(todayDateKey),
     [todayDateKey],
   );
+  const lastVisitDaysByClientKey = useMemo(() => {
+    const lastCompletedDateByClientKey = new Map<string, string>();
+
+    appointments.forEach((appointment) => {
+      const isCompleted =
+        appointment.status === "completed" ||
+        completedAppointmentStates[appointment.id] !== undefined;
+
+      if (!isCompleted || appointment.date > todayDateKey) {
+        return;
+      }
+
+      const clientKey = appointment.clientId
+        ? `id:${appointment.clientId}`
+        : `name:${appointment.clientName.toLocaleLowerCase("pl-PL")}`;
+      const currentLastDate = lastCompletedDateByClientKey.get(clientKey);
+
+      if (!currentLastDate || appointment.date > currentLastDate) {
+        lastCompletedDateByClientKey.set(clientKey, appointment.date);
+      }
+    });
+
+    return new Map(
+      Array.from(lastCompletedDateByClientKey.entries()).map(([clientKey, date]) => [
+        clientKey,
+        getDaysBetweenDateKeys(date, todayDateKey),
+      ]),
+    );
+  }, [appointments, completedAppointmentStates, todayDateKey]);
 
   const groupedAppointments = useMemo(() => {
     function isCompleted(appointment: Appointment) {
@@ -198,6 +251,10 @@ export default function AppointmentsExperience({
     const displayAppointment = getDisplayAppointment(appointment, completedState);
     const displayStatus = getDisplayStatus(displayAppointment) as DisplayAppointmentStatus;
     const canComplete = displayStatus !== "cancelled" && displayStatus !== "completed";
+    const clientKey = displayAppointment.clientId
+      ? `id:${displayAppointment.clientId}`
+      : `name:${displayAppointment.clientName.toLocaleLowerCase("pl-PL")}`;
+    const lastVisitDaysAgo = lastVisitDaysByClientKey.get(clientKey) ?? null;
 
     return (
       <article
@@ -210,9 +267,7 @@ export default function AppointmentsExperience({
             setModalMode("details");
             setSelectedAppointmentId(appointment.id);
           }}
-          className={`block w-full rounded-[24px] px-5 pt-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-            canComplete ? "pb-[3.25rem]" : "pb-3.5"
-          }`}
+          className="block w-full rounded-[24px] px-5 pb-[3.25rem] pt-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -266,6 +321,14 @@ export default function AppointmentsExperience({
             ) : null}
           </div>
         </button>
+
+        <p
+          className={`absolute bottom-4 left-5 truncate text-xs font-medium text-slate-400 ${
+            canComplete ? "right-16" : "right-5"
+          }`}
+        >
+          {formatLastVisitLabel(lastVisitDaysAgo)}
+        </p>
 
         {canComplete ? (
           <button
