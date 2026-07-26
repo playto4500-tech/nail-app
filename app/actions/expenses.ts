@@ -28,6 +28,7 @@ export async function createExpenseAction(formData: FormData): Promise<ActionRes
   }
 
   revalidatePath("/money");
+  revalidatePath("/money-test");
 
   return actionOk();
 }
@@ -48,6 +49,7 @@ export async function deleteExpenseAction(formData: FormData): Promise<ActionRes
   }
 
   revalidatePath("/money");
+  revalidatePath("/money-test");
 
   return actionOk();
 }

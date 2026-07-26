@@ -1214,9 +1214,6 @@ export default function MoneyTestExperience({ summary }: Props) {
               <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.08em] text-blue-700 ring-1 ring-blue-100">
                 TEST
               </span>
-              <span className="rounded-md bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
-                TailAdmin direction
-              </span>
             </div>
             <h1 className="mt-4 text-3xl font-bold tracking-normal text-slate-950 sm:text-4xl">
               Pieniądze TEST

@@ -2,25 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 const navigationItems = [
   { href: "/appointments", label: "Wizyty" },
   { href: "/clients", label: "Klientki" },
   { href: "/services", label: "Usługi" },
-  { href: "/inventory", label: "Zasoby" },
   { href: "/planner", label: "Planner" },
   { href: "/money", label: "Pieniądze" },
+];
+
+const testNavigationItems = [
+  { href: "/appointments-test", label: "Wizyty TEST" },
   { href: "/money-test", label: "Pieniądze TEST" },
+  { href: "/inventory-test", label: "Zasoby TEST" },
 ];
 
 const pageTitles: Record<string, string> = {
   "/": "Wizyty",
   "/appointments": "Wizyty",
+  "/appointments-test": "Wizyty TEST",
   "/appointments/new": "Nowa wizyta",
   "/clients": "Klientki",
   "/services": "Usługi",
   "/inventory": "Zasoby",
+  "/inventory-test": "Zasoby TEST",
   "/planner": "Planner",
   "/money": "Pieniądze",
   "/money-test": "Pieniądze TEST",
@@ -29,12 +35,16 @@ const pageTitles: Record<string, string> = {
 export default function TopBar() {
   const pathname = usePathname();
   const menuToggleRef = useRef<HTMLInputElement>(null);
+  const [showTestPages, setShowTestPages] = useState(false);
 
   if (pathname === "/login") {
     return null;
   }
 
   const title = pageTitles[pathname] ?? "Nail Studio Manager";
+  const visibleNavigationItems = showTestPages
+    ? [...navigationItems, ...testNavigationItems]
+    : navigationItems;
 
   function isItemActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -116,8 +126,21 @@ export default function TopBar() {
             ✕
           </label>
         </div>
+        <div className="border-b border-slate-200 px-4 py-4">
+          <label className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-900">
+              Pokaż strony testowe
+            </span>
+            <input
+              type="checkbox"
+              checked={showTestPages}
+              onChange={(event) => setShowTestPages(event.target.checked)}
+              className="h-5 w-5 accent-slate-950"
+            />
+          </label>
+        </div>
         <nav className="space-y-2 p-4">
-          {navigationItems.map((item) => {
+          {visibleNavigationItems.map((item) => {
             const isActive = isItemActive(item.href);
 
             return (

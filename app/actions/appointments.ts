@@ -72,6 +72,7 @@ export async function createAppointmentAction(formData: FormData): Promise<Actio
   });
 
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/clients");
   revalidatePath("/planner");
 
@@ -114,6 +115,7 @@ export async function updateAppointmentAction(formData: FormData): Promise<Actio
   }
 
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/planner");
 
   return actionOk();
@@ -138,6 +140,7 @@ export async function cancelAppointmentAction(formData: FormData): Promise<Actio
   }
 
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/planner");
 
   return actionOk();
@@ -216,6 +219,7 @@ export async function completeAppointmentAction(formData: FormData): Promise<Act
   }
 
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/planner");
 
   return actionOk();
@@ -237,6 +241,7 @@ export async function deleteAppointmentAction(formData: FormData): Promise<Actio
   }
 
   revalidatePath("/appointments");
+  revalidatePath("/appointments-test");
   revalidatePath("/planner");
 
   return actionOk();
