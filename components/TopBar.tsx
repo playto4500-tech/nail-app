@@ -11,6 +11,7 @@ const navigationItems = [
   { href: "/inventory", label: "Zasoby" },
   { href: "/planner", label: "Planner" },
   { href: "/money", label: "Pieniądze" },
+  { href: "/money-test", label: "Pieniądze TEST" },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -22,6 +23,7 @@ const pageTitles: Record<string, string> = {
   "/inventory": "Zasoby",
   "/planner": "Planner",
   "/money": "Pieniądze",
+  "/money-test": "Pieniądze TEST",
 };
 
 export default function TopBar() {
