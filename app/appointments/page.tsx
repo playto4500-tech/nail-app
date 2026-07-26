@@ -35,11 +35,8 @@ export default function AppointmentsPage() {
             Wizyty
           </p>
           <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-900">
-            Dzisiaj w planie
+            Nadchodzące wizyty
           </h1>
-          <p className="mt-3 text-slate-600">
-            Przeglądaj zaplanowane wizyty i przygotuj się na kolejnych klientów.
-          </p>
         </section>
 
         <Suspense fallback={<AppointmentsListSkeleton />}>

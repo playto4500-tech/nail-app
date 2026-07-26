@@ -22,9 +22,6 @@ export default async function LoginPage({ searchParams }: Props) {
           <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-900">
             Podaj hasło
           </h1>
-          <p className="mt-3 text-slate-600">
-            Ta aplikacja jest tylko do codziennej pracy Aliny.
-          </p>
 
           <div className="mt-6">
             <AccessLoginForm nextPath={nextPath} />

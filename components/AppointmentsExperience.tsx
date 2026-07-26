@@ -12,6 +12,7 @@ import {
   getDisplayStatus,
   getStatusClasses,
   getStatusLabel,
+  getTodayDateKey,
   type DisplayAppointmentStatus,
   type AppointmentCompletionState,
   type ToastMessage,
@@ -22,6 +23,36 @@ type Props = {
   clients: ClientSummary[];
   services: ServiceItem[];
 };
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  date.setDate(date.getDate() + days);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getEndOfMonthDateKey(dateKey: string) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 12);
+
+  const year = endOfMonth.getFullYear();
+  const month = String(endOfMonth.getMonth() + 1).padStart(2, "0");
+  const day = String(endOfMonth.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getEndOfWeekDateKey(dateKey: string) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  const day = date.getDay();
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+
+  return addDaysToDateKey(dateKey, daysUntilSunday);
+}
 
 function getDisplayAppointment(
   appointment: Appointment,
@@ -48,6 +79,7 @@ export default function AppointmentsExperience({
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<null | number>(null);
   const [modalMode, setModalMode] = useState<"details" | "complete">("details");
   const [showPastVisits, setShowPastVisits] = useState(false);
+  const [showLaterVisits, setShowLaterVisits] = useState(false);
   const [toast, setToast] = useState<null | ToastMessage>(null);
   const [completedAppointmentStates, setCompletedAppointmentStates] = useState<
     Record<number, AppointmentCompletionState>
@@ -57,6 +89,19 @@ export default function AppointmentsExperience({
     () =>
       appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? null,
     [appointments, selectedAppointmentId],
+  );
+  const todayDateKey = useMemo(() => getTodayDateKey(), []);
+  const twoWeeksEndDateKey = useMemo(
+    () => addDaysToDateKey(todayDateKey, 13),
+    [todayDateKey],
+  );
+  const weekEndDateKey = useMemo(
+    () => getEndOfWeekDateKey(todayDateKey),
+    [todayDateKey],
+  );
+  const monthEndDateKey = useMemo(
+    () => getEndOfMonthDateKey(todayDateKey),
+    [todayDateKey],
   );
 
   const groupedAppointments = useMemo(() => {
@@ -79,6 +124,16 @@ export default function AppointmentsExperience({
       (appointment) => !isCompleted(appointment),
     );
     const past = appointments.filter((appointment) => isCompleted(appointment));
+    const visibleCurrentAppointments = currentAppointments.filter(
+      (appointment) =>
+        appointment.date < todayDateKey || appointment.date <= twoWeeksEndDateKey,
+    );
+    const laterAppointments = currentAppointments.filter(
+      (appointment) => appointment.date > twoWeeksEndDateKey,
+    );
+    const summaryAppointments = currentAppointments.filter(
+      (appointment) => appointment.status !== "cancelled",
+    );
 
     function groupByDate(items: Appointment[], direction: "asc" | "desc") {
       const sortedItems = [...items].sort((a, b) => {
@@ -101,12 +156,33 @@ export default function AppointmentsExperience({
     }
 
     return {
-      currentGroups: groupByDate(currentAppointments, "asc"),
+      currentGroups: groupByDate(visibleCurrentAppointments, "asc"),
+      laterGroups: groupByDate(laterAppointments, "asc"),
       pastGroups: groupByDate(past, "desc"),
-      currentCount: currentAppointments.length,
+      laterCount: laterAppointments.length,
       pastCount: past.length,
+      stats: {
+        today: summaryAppointments.filter(
+          (appointment) => appointment.date === todayDateKey,
+        ).length,
+        week: summaryAppointments.filter(
+          (appointment) =>
+            appointment.date >= todayDateKey && appointment.date <= weekEndDateKey,
+        ).length,
+        month: summaryAppointments.filter(
+          (appointment) =>
+            appointment.date >= todayDateKey && appointment.date <= monthEndDateKey,
+        ).length,
+      },
     };
-  }, [appointments, completedAppointmentStates]);
+  }, [
+    appointments,
+    completedAppointmentStates,
+    monthEndDateKey,
+    todayDateKey,
+    twoWeeksEndDateKey,
+    weekEndDateKey,
+  ]);
 
   useEffect(() => {
     if (!toast) {
@@ -238,13 +314,27 @@ export default function AppointmentsExperience({
 
       <section className="space-y-4">
         <div className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
-          <p className="text-sm text-slate-500">Wizyty</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {groupedAppointments.currentCount}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            Pokazujemy wizyty bieżące i zaległe. Dopiero zakończone trafiają niżej.
-          </p>
+          <p className="text-sm font-semibold text-slate-900">Nadchodzące wizyty</p>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <p className="text-xs text-slate-500">Dzisiaj</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {groupedAppointments.stats.today}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <p className="text-xs text-slate-500">Tydzień</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {groupedAppointments.stats.week}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <p className="text-xs text-slate-500">Miesiąc</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {groupedAppointments.stats.month}
+              </p>
+            </div>
+          </div>
         </div>
 
         {groupedAppointments.currentGroups.length > 0 ? (
@@ -256,9 +346,44 @@ export default function AppointmentsExperience({
           ))
         ) : (
           <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm shadow-slate-200">
-            Nie ma jeszcze żadnych aktywnych wizyt.
+            {groupedAppointments.laterCount > 0
+              ? "Brak wizyt w najbliższych 2 tygodniach."
+              : "Nie ma jeszcze żadnych aktywnych wizyt."}
           </div>
         )}
+
+        {groupedAppointments.laterCount > 0 ? (
+          <section className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowLaterVisits((current) => !current)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  Późniejsze wizyty
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {groupedAppointments.laterCount} wizyt po najbliższych 2 tygodniach
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-slate-600">
+                {showLaterVisits ? "Ukryj" : "Pokaż późniejsze wizyty"}
+              </span>
+            </button>
+
+            {showLaterVisits ? (
+              <div className="mt-5 space-y-5">
+                {groupedAppointments.laterGroups.map((group) => (
+                  <section key={group.date} className="space-y-3">
+                    <p className="pl-1 text-sm font-semibold text-slate-700">{group.label}</p>
+                    <div className="space-y-3">{group.items.map(renderAppointmentCard)}</div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {groupedAppointments.pastCount > 0 ? (
           <section className="rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">

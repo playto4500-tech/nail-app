@@ -31,6 +31,7 @@ export type FinancePeriodSummary = {
   income: number;
   expenses: number;
   profit: number;
+  appointmentCount: number;
 };
 
 export type MonthlyFinanceSummary = FinancePeriodSummary & {
@@ -84,6 +85,16 @@ function sumInRange<T extends { date: string; amount: number }>(
   }, 0);
 }
 
+function countInRange<T extends { date: string }>(items: T[], from: string, to: string) {
+  return items.reduce((total, item) => {
+    if (item.date < from || item.date > to) {
+      return total;
+    }
+
+    return total + 1;
+  }, 0);
+}
+
 function createPeriodSummary(
   label: string,
   incomes: Array<{ date: string; amount: number }>,
@@ -99,6 +110,7 @@ function createPeriodSummary(
     income,
     expenses: expenseTotal,
     profit: income - expenseTotal,
+    appointmentCount: countInRange(incomes, from, to),
   };
 }
 

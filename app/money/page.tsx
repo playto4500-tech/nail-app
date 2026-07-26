@@ -111,7 +111,7 @@ export default async function MoneyPage() {
                     {formatPrice(month.profit)}
                   </p>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
+                <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500">
                   <p>
                     Przychód:{" "}
                     <span className="font-semibold text-slate-900">
@@ -122,6 +122,12 @@ export default async function MoneyPage() {
                     Wydatki:{" "}
                     <span className="font-semibold text-slate-900">
                       {formatPrice(month.expenses)}
+                    </span>
+                  </p>
+                  <p>
+                    Wizyty:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {month.appointmentCount}
                     </span>
                   </p>
                 </div>
