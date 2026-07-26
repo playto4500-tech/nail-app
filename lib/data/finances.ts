@@ -26,12 +26,29 @@ type IncomeRow = {
   deleted_at: null | string;
 };
 
+type FutureAppointmentRow = {
+  appointment_date: string;
+  deleted_at: null | string;
+  status: string;
+};
+
+type IncomeItem = {
+  date: string;
+  amount: number;
+  tip: number;
+};
+
 export type FinancePeriodSummary = {
   label: string;
   income: number;
   expenses: number;
   profit: number;
   appointmentCount: number;
+  averageAppointmentIncome: number;
+  tipTotal: number;
+  averageTip: number;
+  tippedAppointmentCount: number;
+  tipRate: number;
 };
 
 export type MonthlyFinanceSummary = FinancePeriodSummary & {
@@ -44,6 +61,11 @@ export type FinanceSummary = {
   month: FinancePeriodSummary;
   year: FinancePeriodSummary;
   months: MonthlyFinanceSummary[];
+  projected: {
+    upcomingAppointmentCount: number;
+    averageIncomeLast30Days: number;
+    estimatedIncome: number;
+  };
   recentExpenses: Expense[];
 };
 
@@ -85,32 +107,36 @@ function sumInRange<T extends { date: string; amount: number }>(
   }, 0);
 }
 
-function countInRange<T extends { date: string }>(items: T[], from: string, to: string) {
-  return items.reduce((total, item) => {
-    if (item.date < from || item.date > to) {
-      return total;
-    }
-
-    return total + 1;
-  }, 0);
-}
-
 function createPeriodSummary(
   label: string,
-  incomes: Array<{ date: string; amount: number }>,
+  incomes: IncomeItem[],
   expenses: Array<{ date: string; amount: number }>,
   from: string,
   to: string,
 ): FinancePeriodSummary {
-  const income = sumInRange(incomes, from, to);
+  const periodIncomes = incomes.filter((item) => item.date >= from && item.date <= to);
+  const income = periodIncomes.reduce((total, item) => total + item.amount, 0);
   const expenseTotal = sumInRange(expenses, from, to);
+  const appointmentCount = periodIncomes.length;
+  const tipTotal = periodIncomes.reduce((total, item) => total + item.tip, 0);
+  const tippedAppointmentCount = periodIncomes.filter((item) => item.tip > 0).length;
 
   return {
     label,
     income,
     expenses: expenseTotal,
     profit: income - expenseTotal,
-    appointmentCount: countInRange(incomes, from, to),
+    appointmentCount,
+    averageAppointmentIncome:
+      appointmentCount > 0 ? Math.round(income / appointmentCount) : 0,
+    tipTotal,
+    averageTip:
+      tippedAppointmentCount > 0 ? Math.round(tipTotal / tippedAppointmentCount) : 0,
+    tippedAppointmentCount,
+    tipRate:
+      appointmentCount > 0
+        ? Math.round((tippedAppointmentCount / appointmentCount) * 100)
+        : 0,
   };
 }
 
@@ -123,10 +149,13 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const endOfMonthKey = toDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   const startOfYearKey = toDateKey(new Date(today.getFullYear(), 0, 1));
   const endOfYearKey = toDateKey(new Date(today.getFullYear(), 11, 31));
+  const thirtyDaysAgoKey = toDateKey(
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30),
+  );
   const queryStartKey =
-    startOfWeekKey < startOfYearKey ? startOfWeekKey : startOfYearKey;
+    thirtyDaysAgoKey < startOfYearKey ? thirtyDaysAgoKey : startOfYearKey;
 
-  const [incomeResponse, expenseResponse] = await Promise.all([
+  const [incomeResponse, expenseResponse, futureAppointmentsResponse] = await Promise.all([
     supabase
       .from("appointments")
       .select("appointment_date, appointment_price, appointment_tip, deleted_at")
@@ -141,6 +170,12 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       .lte("expense_date", endOfYearKey)
       .order("expense_date", { ascending: false })
       .order("created_at", { ascending: false }),
+    supabase
+      .from("appointments")
+      .select("appointment_date, status, deleted_at")
+      .in("status", ["confirmed", "scheduled"])
+      .is("deleted_at", null)
+      .gte("appointment_date", todayKey),
   ]);
 
   if (incomeResponse.error) {
@@ -151,9 +186,16 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     throw new Error(`Failed to load expenses: ${expenseResponse.error.message}`);
   }
 
+  if (futureAppointmentsResponse.error) {
+    throw new Error(
+      `Failed to load projected appointments: ${futureAppointmentsResponse.error.message}`,
+    );
+  }
+
   const incomes = ((incomeResponse.data ?? []) as IncomeRow[]).map((item) => ({
     date: item.appointment_date,
     amount: item.appointment_price + (item.appointment_tip ?? 0),
+    tip: item.appointment_tip ?? 0,
   }));
   const expenses = ((expenseResponse.data ?? []) as ExpenseRow[]).map((item) => ({
     id: item.id,
@@ -167,6 +209,17 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     date: expense.date,
     amount: expense.amount,
   }));
+  const recentIncomes = incomes.filter((income) => income.date >= thirtyDaysAgoKey);
+  const averageIncomeLast30Days =
+    recentIncomes.length > 0
+      ? Math.round(
+          recentIncomes.reduce((total, income) => total + income.amount, 0) /
+            recentIncomes.length,
+        )
+      : 0;
+  const upcomingAppointmentCount = (
+    (futureAppointmentsResponse.data ?? []) as FutureAppointmentRow[]
+  ).length;
 
   const months = Array.from({ length: today.getMonth() + 1 }, (_, index) => {
     const monthDate = new Date(today.getFullYear(), index, 1);
@@ -210,6 +263,11 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       endOfYearKey,
     ),
     months,
+    projected: {
+      upcomingAppointmentCount,
+      averageIncomeLast30Days,
+      estimatedIncome: upcomingAppointmentCount * averageIncomeLast30Days,
+    },
     recentExpenses: expenses.slice(0, 6),
   };
 }
