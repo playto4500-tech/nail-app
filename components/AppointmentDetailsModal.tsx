@@ -8,7 +8,7 @@ import {
   deleteAppointmentAction,
   updateAppointmentAction,
 } from "../app/actions/appointments";
-import type { Appointment } from "../lib/data/appointments";
+import type { Appointment, AppointmentStatus } from "../lib/data/appointments";
 import type { ClientSummary } from "../lib/data/clients";
 import type { ServiceItem } from "../lib/data/services";
 import { useBodyScrollLock } from "../lib/hooks/useBodyScrollLock";
@@ -24,6 +24,7 @@ import {
   getDisplayStatus,
   getStatusClasses,
   getStatusLabel,
+  getTodayDateKey,
   type AppointmentCompletionState,
   type DisplayAppointmentStatus,
   type ToastMessage,
@@ -46,7 +47,7 @@ type EditFormState = {
   clientId: string;
   date: string;
   time: string;
-  status: "confirmed" | "scheduled";
+  status: AppointmentStatus;
   notes: string;
 };
 
@@ -55,9 +56,15 @@ function createInitialEditState(appointment: Appointment): EditFormState {
     clientId: appointment.clientId ? String(appointment.clientId) : "",
     date: appointment.date,
     time: appointment.time,
-    status: appointment.status === "confirmed" ? "confirmed" : "scheduled",
+    status: appointment.status,
     notes: appointment.notes,
   };
+}
+
+function getAppointmentClientKey(appointment: Appointment) {
+  return appointment.clientId
+    ? `id:${appointment.clientId}`
+    : `name:${appointment.clientName.toLocaleLowerCase("pl-PL")}`;
 }
 
 export default function AppointmentDetailsModal({
@@ -86,6 +93,9 @@ export default function AppointmentDetailsModal({
   const [completeHasAddon, setCompleteHasAddon] = useState(
     () => (selectedAppointment?.addonNames.length ?? 0) > 0,
   );
+  const [expandedClientVisitHistoryId, setExpandedClientVisitHistoryId] = useState<
+    null | number
+  >(null);
   const [isPending, startTransition] = useTransition();
   const [editState, setEditState] = useState<null | EditFormState>(
     () => (selectedAppointment ? createInitialEditState(selectedAppointment) : null),
@@ -103,6 +113,44 @@ export default function AppointmentDetailsModal({
     () => services.filter((service) => service.category === "addon"),
     [services],
   );
+  const clientVisitHistory = useMemo(() => {
+    if (!selectedAppointment) {
+      return [];
+    }
+
+    const selectedClientKey = getAppointmentClientKey(selectedAppointment);
+    const todayKey = getTodayDateKey();
+
+    return appointments
+      .filter((appointmentItem) => {
+        if (appointmentItem.id === selectedAppointment.id) {
+          return false;
+        }
+
+        if (getAppointmentClientKey(appointmentItem) !== selectedClientKey) {
+          return false;
+        }
+
+        return (
+          appointmentItem.status === "completed" ||
+          appointmentItem.date < todayKey ||
+          appointmentItem.date < selectedAppointment.date
+        );
+      })
+      .sort((first, second) => {
+        if (first.date !== second.date) {
+          return second.date.localeCompare(first.date);
+        }
+
+        return second.time.localeCompare(first.time);
+      });
+  }, [appointments, selectedAppointment]);
+  const showAllClientVisits =
+    selectedAppointment !== null &&
+    expandedClientVisitHistoryId === selectedAppointment.id;
+  const visibleClientVisitHistory = showAllClientVisits
+    ? clientVisitHistory
+    : clientVisitHistory.slice(0, 3);
 
   useBodyScrollLock(Boolean(selectedAppointment));
   useEscapeToClose({
@@ -138,7 +186,7 @@ export default function AppointmentDetailsModal({
   }
 
   function openCompleteMode() {
-    if (appointment.status === "cancelled" || appointment.status === "completed") {
+    if (appointment.status === "cancelled") {
       return;
     }
 
@@ -218,6 +266,7 @@ export default function AppointmentDetailsModal({
       onCompleted?.(appointment.id, {
         price: completedPrice,
         tip: Number.isFinite(completedTip) ? completedTip : 0,
+        addonIds: completedAddon ? [completedAddon.id] : [],
         addonNames: completedAddon ? [completedAddon.name] : [],
       });
       onCompletionSuccess?.();
@@ -383,7 +432,7 @@ export default function AppointmentDetailsModal({
                     current
                       ? {
                           ...current,
-                          status: event.target.value as "confirmed" | "scheduled",
+                          status: event.target.value as AppointmentStatus,
                         }
                       : current,
                   )
@@ -392,6 +441,10 @@ export default function AppointmentDetailsModal({
               >
                 <option value="confirmed">Potwierdzona</option>
                 <option value="scheduled">Zaplanowana</option>
+                <option value="cancelled">Anulowana</option>
+                {appointment.status === "completed" ? (
+                  <option value="completed">Zakończona</option>
+                ) : null}
               </select>
             </label>
 
@@ -461,6 +514,7 @@ export default function AppointmentDetailsModal({
                   min="0"
                   step="1"
                   required
+                  defaultValue={selectedAppointment.price ?? ""}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                 />
                 <span className="shrink-0 text-sm font-semibold text-slate-500">PLN</span>
@@ -514,12 +568,14 @@ export default function AppointmentDetailsModal({
                 <select
                   name="addonId"
                   required
-                  defaultValue=""
+                  defaultValue={selectedAppointment.addonIds[0] ? String(selectedAppointment.addonIds[0]) : ""}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                 >
-                  <option value="" disabled>
-                    Wybierz dodatek
-                  </option>
+                  {selectedAppointment.addonIds[0] ? null : (
+                    <option value="" disabled>
+                      Wybierz dodatek
+                    </option>
+                  )}
                   {addonOptions.map((addon) => (
                     <option key={addon.id} value={addon.id}>
                       {addon.name}
@@ -554,7 +610,11 @@ export default function AppointmentDetailsModal({
                 disabled={isPending}
                 className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
               >
-                {isPending ? "Zapisywanie..." : "Zakończ"}
+                {isPending
+                  ? "Zapisywanie..."
+                  : displayStatus === "completed"
+                    ? "Zapisz rozliczenie"
+                    : "Zakończ"}
               </button>
             </div>
           </form>
@@ -634,36 +694,102 @@ export default function AppointmentDetailsModal({
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {displayStatus === "completed" ? null : (
-                <>
-                  {displayStatus === "cancelled" ? null : (
-                    <button
-                      type="button"
-                      onClick={openCompleteMode}
-                      disabled={isPending}
-                      className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+            <div className="rounded-[24px] bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                  Ostatnie wizyty
+                </p>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">
+                  {clientVisitHistory.length}
+                </span>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {visibleClientVisitHistory.length > 0 ? (
+                  visibleClientVisitHistory.map((visit) => (
+                    <article
+                      key={visit.id}
+                      className="rounded-[18px] border border-slate-100 bg-white p-3"
                     >
-                      Zakończ
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={openEditMode}
-                    disabled={isPending}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Edytuj
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelAppointment}
-                    disabled={isPending || displayStatus === "cancelled"}
-                    className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
-                  >
-                    Anuluj
-                  </button>
-                </>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {formatAppointmentDate(visit.date)} · {visit.time}
+                          </p>
+                          {visit.serviceName ? (
+                            <p className="mt-1 text-sm text-slate-600">
+                              {visit.serviceName}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getStatusClasses(getDisplayStatus(visit))}`}
+                        >
+                          {getStatusLabel(getDisplayStatus(visit))}
+                        </span>
+                      </div>
+
+                      {visit.status === "completed" ? (
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          {formatPrice(
+                            getAppointmentPaidTotal(visit.price ?? 0, visit.tip),
+                          )}
+                        </p>
+                      ) : null}
+
+                      {visit.notes ? (
+                        <p className="mt-2 text-sm text-slate-600">{visit.notes}</p>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500">Brak poprzednich wizyt.</p>
+                )}
+              </div>
+
+              {clientVisitHistory.length > 3 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedClientVisitHistoryId((currentValue) =>
+                      currentValue === appointment.id ? null : appointment.id,
+                    )
+                  }
+                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {showAllClientVisits ? "Pokaż mniej" : "Pokaż więcej"}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {displayStatus === "cancelled" ? null : (
+                <button
+                  type="button"
+                  onClick={openCompleteMode}
+                  disabled={isPending}
+                  className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+                >
+                  {displayStatus === "completed" ? "Edytuj rozliczenie" : "Zakończ"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openEditMode}
+                disabled={isPending}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Edytuj
+              </button>
+              {displayStatus === "completed" || displayStatus === "cancelled" ? null : (
+                <button
+                  type="button"
+                  onClick={handleCancelAppointment}
+                  disabled={isPending}
+                  className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                >
+                  Anuluj
+                </button>
               )}
               <button
                 type="button"

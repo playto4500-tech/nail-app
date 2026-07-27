@@ -67,6 +67,10 @@ type ClientVisitRow = {
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
+export function normalizeClientName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("pl-PL");
+}
+
 function mapClientSummary(
   client: Pick<ClientRow, "id" | "name" | "instagram_handle" | "status">,
   classification: ClientClassification,
@@ -92,6 +96,24 @@ async function getClientSummaryRows(supabase: SupabaseClient) {
     .from("clients")
     .select("id, name, instagram_handle, status")
     .order("name", { ascending: true });
+}
+
+async function getClientByNormalizedName(
+  supabase: SupabaseClient,
+  normalizedName: string,
+) {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name, instagram_handle, status, notes, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to check duplicate clients: ${error.message}`);
+  }
+
+  return ((data ?? []) as ClientRow[]).find(
+    (client) => normalizeClientName(client.name) === normalizedName,
+  ) ?? null;
 }
 
 async function getClientClassificationVisits(supabase: SupabaseClient) {
@@ -292,7 +314,6 @@ export async function getClientById(id: number) {
 
 export async function getClientVisitHistories() {
   const supabase = await createClient();
-  const todayKey = getTodayDateKey();
   const { data, error } = await supabase
     .from("appointments")
     .select(
@@ -308,13 +329,6 @@ export async function getClientVisitHistories() {
   return ((data ?? []) as ClientVisitRow[]).reduce<Record<number, ClientVisit[]>>(
     (visitsByClient, visit) => {
       if (visit.deleted_at) {
-        return visitsByClient;
-      }
-
-      const isPreviousVisit =
-        visit.status === "completed" || visit.appointment_date < todayKey;
-
-      if (!isPreviousVisit) {
         return visitsByClient;
       }
 
@@ -351,10 +365,19 @@ export async function createClientRecord(input: {
   notes: string;
 }) {
   const supabase = await createClient();
+  const existingClient = await getClientByNormalizedName(
+    supabase,
+    normalizeClientName(input.name),
+  );
+
+  if (existingClient) {
+    return existingClient.id;
+  }
+
   const { data, error } = await supabase
     .from("clients")
     .insert({
-      name: input.name,
+      name: input.name.trim().replace(/\s+/g, " "),
       instagram_handle: input.instagramHandle || null,
       status: input.status,
       notes: input.notes || null,
@@ -377,10 +400,19 @@ export async function updateClientRecord(input: {
   notes: string;
 }) {
   const supabase = await createClient();
+  const existingClient = await getClientByNormalizedName(
+    supabase,
+    normalizeClientName(input.name),
+  );
+
+  if (existingClient && existingClient.id !== input.id) {
+    throw new Error("Klientka o tej nazwie już istnieje.");
+  }
+
   const { error } = await supabase
     .from("clients")
     .update({
-      name: input.name,
+      name: input.name.trim().replace(/\s+/g, " "),
       instagram_handle: input.instagramHandle || null,
       status: input.status,
       notes: input.notes || null,

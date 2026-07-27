@@ -105,6 +105,7 @@ function getDisplayAppointment(
 
   return {
     ...appointment,
+    addonIds: completedState.addonIds,
     addonNames: completedState.addonNames,
     price: completedState.price,
     tip: completedState.tip,

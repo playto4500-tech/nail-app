@@ -38,6 +38,21 @@ type TrendPoint = {
   unrealizedValue: number;
 };
 
+const monthShortLabels = [
+  "sty",
+  "lut",
+  "mar",
+  "kwi",
+  "maj",
+  "cze",
+  "lip",
+  "sie",
+  "wrz",
+  "paź",
+  "lis",
+  "gru",
+];
+
 const rangeOptions: Array<{ key: RangeKey; label: string }> = [
   { key: "today", label: "Dzisiaj" },
   { key: "week", label: "Tydzień" },
@@ -364,82 +379,42 @@ function getSelectedRangeSummary(
   );
 }
 
-function buildNetTrend(
+function getAvailableFinanceYears(
   todayKey: string,
-  mode: VisitsTrendMode,
+  incomes: CompletedAppointmentIncome[],
+  expenses: ExpenseAmountItem[],
+  plannedAppointments: PlannedAppointmentIncome[],
+) {
+  const years = new Set([parseDateKey(todayKey).getFullYear()]);
+
+  [incomes, expenses, plannedAppointments].forEach((items) => {
+    items.forEach((item) => {
+      years.add(parseDateKey(item.date).getFullYear());
+    });
+  });
+
+  return [...years].sort((first, second) => second - first);
+}
+
+function buildYearlyNetTrend(
+  selectedYear: number,
   incomes: CompletedAppointmentIncome[],
   expenses: ExpenseAmountItem[],
   plannedAppointments: PlannedAppointmentIncome[],
   averageIncomeLastMonth: number,
-  includeUnrealized: boolean,
 ) {
-  if (mode === "week") {
-    const latestWeekStartDate = getLatestWeekStartDate(
-      todayKey,
-      plannedAppointments,
-      includeUnrealized,
-    );
-    const startWeekDate = getStartWeekForTrend(todayKey, latestWeekStartDate, [
-      incomes,
-      expenses,
-      includeUnrealized ? plannedAppointments : [],
-    ]);
-    const pointCount =
-      Math.round(
-        (latestWeekStartDate.getTime() - startWeekDate.getTime()) /
-          (1000 * 60 * 60 * 24 * 7),
-      ) + 1;
-
-    return Array.from({ length: pointCount }, (_, index) => {
-      const startOfWeek = addDays(startWeekDate, index * 7);
-      const endOfWeek = addDays(startOfWeek, 6);
-      const from = toDateKey(startOfWeek);
-      const to = toDateKey(endOfWeek);
-      const income = sumInRange(incomes, from, to);
-      const expenseTotal = sumInRange(expenses, from, to);
-      const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
-
-      return {
-        key: from,
-        label: new Intl.DateTimeFormat("pl-PL", {
-          day: "2-digit",
-          month: "2-digit",
-        }).format(startOfWeek),
-        value: Math.max(0, income - expenseTotal),
-        expenseValue: expenseTotal,
-        unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
-      };
-    });
-  }
-
-  const latestMonthDate = getLatestMonthDate(
-    todayKey,
-    plannedAppointments,
-    includeUnrealized,
-  );
-  const startMonthDate = getStartMonthForTrend(todayKey, latestMonthDate, [
-    incomes,
-    expenses,
-    includeUnrealized ? plannedAppointments : [],
-  ]);
-  const pointCount =
-    (latestMonthDate.getFullYear() - startMonthDate.getFullYear()) * 12 +
-    latestMonthDate.getMonth() -
-    startMonthDate.getMonth() +
-    1;
-
-  return Array.from({ length: pointCount }, (_, index) => {
-    const monthDate = addMonths(startMonthDate, index);
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const monthDate = new Date(selectedYear, monthIndex, 1, 12);
     const from = toDateKey(monthDate);
-    const to = toDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 12));
+    const to = toDateKey(new Date(selectedYear, monthIndex + 1, 0, 12));
     const income = sumInRange(incomes, from, to);
     const expenseTotal = sumInRange(expenses, from, to);
     const unrealizedAppointmentCount = countInRange(plannedAppointments, from, to);
 
     return {
-      key: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
-      label: getMonthShortLabel(monthDate),
-      value: Math.max(0, income - expenseTotal),
+      key: `${selectedYear}-${String(monthIndex + 1).padStart(2, "0")}`,
+      label: monthShortLabels[monthIndex],
+      value: income,
       expenseValue: expenseTotal,
       unrealizedValue: Math.round(unrealizedAppointmentCount * averageIncomeLastMonth),
     };
@@ -707,11 +682,11 @@ function ShowUnrealizedButton({
   );
 }
 
-function getTrendPages(points: TrendPoint[]) {
+function getTrendPages(points: TrendPoint[], pageSize = 10) {
   const pages: TrendPoint[][] = [];
 
-  for (let endIndex = points.length; endIndex > 0; endIndex -= 10) {
-    pages.push(points.slice(Math.max(0, endIndex - 10), endIndex));
+  for (let endIndex = points.length; endIndex > 0; endIndex -= pageSize) {
+    pages.push(points.slice(Math.max(0, endIndex - pageSize), endIndex));
   }
 
   return pages.length > 0 ? pages : [[]];
@@ -722,14 +697,16 @@ function HorizontalTrendChart({
   formatter,
   showUnrealized,
   showExpenses,
+  pageSize = 10,
 }: {
   points: TrendPoint[];
   formatter: (value: number) => string;
   showUnrealized: boolean;
   showExpenses: boolean;
+  pageSize?: number;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const pages = getTrendPages(points);
+  const pages = getTrendPages(points, pageSize);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ left: 0 });
@@ -742,22 +719,40 @@ function HorizontalTrendChart({
     >
       <div className="flex snap-x snap-mandatory gap-3">
         {pages.map((page, pageIndex) => {
+          const maxChartValue = Math.max(
+            1,
+            ...page.map((point) => {
+              const visibleUnrealizedValue =
+                showUnrealized && point.unrealizedValue > 0
+                  ? point.unrealizedValue
+                  : 0;
+
+              return Math.max(
+                showExpenses ? point.expenseValue : 0,
+                point.value + visibleUnrealizedValue,
+              );
+            }),
+          );
           const positiveMaxValue = Math.max(
             1,
             ...page.map((point) =>
               point.value + (showUnrealized ? point.unrealizedValue : 0),
             ),
           );
-          const expenseMaxValue = Math.max(
-            1,
-            ...page.map((point) => (showExpenses ? point.expenseValue : 0)),
-          );
           return (
             <div
               key={`${pageIndex}-${page[0]?.key ?? "empty"}`}
               className="min-w-full snap-start rounded-[20px] border border-slate-100 bg-slate-50 p-3"
             >
-              <div className="space-y-3">
+              {showExpenses ? (
+                <div className="mb-2 grid grid-cols-[3rem_minmax(0,1fr)_0.75rem_minmax(0,1fr)] items-center text-[11px] font-semibold uppercase tracking-[0.14em]">
+                  <span />
+                  <p className="pr-3 text-right text-rose-700">Wydatki</p>
+                  <span />
+                  <p className="pl-3 text-left text-emerald-700">Przychody</p>
+                </div>
+              ) : null}
+              <div className="space-y-2">
                 {page.map((point) => {
                   const visibleUnrealizedValue =
                     showUnrealized && point.unrealizedValue > 0
@@ -765,7 +760,10 @@ function HorizontalTrendChart({
                       : 0;
                   const positiveTotal = point.value + visibleUnrealizedValue;
                   const positiveBarWidth =
-                    positiveTotal > 0 ? (positiveTotal / positiveMaxValue) * 100 : 0;
+                    positiveTotal > 0
+                      ? (positiveTotal / (showExpenses ? maxChartValue : positiveMaxValue)) *
+                        100
+                      : 0;
                   const valueWidth =
                     positiveTotal > 0 && point.value > 0
                       ? (point.value / positiveTotal) * 100
@@ -776,8 +774,101 @@ function HorizontalTrendChart({
                       : 0;
                   const expenseWidth =
                     showExpenses && point.expenseValue > 0
-                      ? (point.expenseValue / expenseMaxValue) * 100
+                      ? (point.expenseValue / maxChartValue) * 100
                       : 0;
+                  const netValue = positiveTotal - point.expenseValue;
+                  const netClassName =
+                    netValue > 0
+                      ? "text-emerald-700"
+                      : netValue < 0
+                        ? "text-rose-700"
+                        : "text-slate-500";
+                  const labelSpace = "4.625rem";
+                  const labelGap = "0.375rem";
+                  const expenseLabelOffset = `calc(${expenseWidth}% + ${labelGap})`;
+                  const incomeLabelOffset = `calc(${positiveBarWidth}% + ${labelGap})`;
+
+                  if (showExpenses) {
+                    return (
+                      <div
+                        key={point.key}
+                        className="border-t border-slate-200/70 pt-2 first:border-t-0 first:pt-0"
+                      >
+                        <div className="grid grid-cols-[3rem_minmax(0,1fr)_0.75rem_minmax(0,1fr)] items-center">
+                          <div className="pr-2">
+                            <p className="text-xs font-semibold leading-tight text-slate-500">
+                              {point.label}
+                            </p>
+                            <p
+                              className={`mt-1 text-[10px] font-semibold leading-none ${netClassName}`}
+                            >
+                              {formatter(netValue)}
+                            </p>
+                          </div>
+
+                          <div className="relative h-8 pr-px">
+                            <div
+                              className="absolute inset-y-0 flex items-center justify-end overflow-visible"
+                              style={{ left: labelSpace, right: "1px" }}
+                            >
+                              {point.expenseValue > 0 ? (
+                                <div
+                                  className="h-4 min-w-1 rounded-l-full bg-rose-500"
+                                  style={{ width: `${expenseWidth}%` }}
+                                  title={formatter(point.expenseValue)}
+                                />
+                              ) : null}
+                              <span
+                                className="pointer-events-none absolute top-1/2 w-[4.25rem] -translate-y-1/2 whitespace-nowrap text-right text-[10px] font-semibold leading-none text-rose-700"
+                                style={{ right: expenseLabelOffset }}
+                              >
+                                {formatter(point.expenseValue)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="relative flex h-9 items-center justify-center">
+                            <span className="h-full w-px rounded-full bg-slate-900/80 shadow-sm shadow-slate-300" />
+                          </div>
+
+                          <div className="relative h-8 pl-px">
+                            <div
+                              className="absolute inset-y-0 flex items-center overflow-visible"
+                              style={{ left: "1px", right: labelSpace }}
+                            >
+                              {positiveTotal > 0 ? (
+                                <div
+                                  className="flex h-4 min-w-1 overflow-hidden rounded-r-full"
+                                  style={{ width: `${positiveBarWidth}%` }}
+                                >
+                                  {point.value > 0 ? (
+                                    <div
+                                      className="bg-emerald-500"
+                                      style={{ width: `${valueWidth}%` }}
+                                      title={formatter(point.value)}
+                                    />
+                                  ) : null}
+                                  {visibleUnrealizedValue > 0 ? (
+                                    <div
+                                      className="bg-emerald-200"
+                                      style={{ width: `${unrealizedWidth}%` }}
+                                      title={formatter(visibleUnrealizedValue)}
+                                    />
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              <span
+                                className="pointer-events-none absolute top-1/2 w-[4.25rem] -translate-y-1/2 whitespace-nowrap text-left text-[10px] font-semibold leading-none text-emerald-700"
+                                style={{ left: incomeLabelOffset }}
+                              >
+                                {formatter(positiveTotal)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
@@ -857,6 +948,8 @@ function TrendBars({
   onToggleUnrealized,
   valueLabel = "Netto",
   showExpenses = false,
+  pageSize = 10,
+  showLegend = true,
   children,
 }: {
   title: string;
@@ -866,6 +959,8 @@ function TrendBars({
   onToggleUnrealized: () => void;
   valueLabel?: string;
   showExpenses?: boolean;
+  pageSize?: number;
+  showLegend?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -884,20 +979,25 @@ function TrendBars({
         formatter={formatter}
         showUnrealized={showUnrealized}
         showExpenses={showExpenses}
+        pageSize={pageSize}
       />
-      <div className="flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
-          {valueLabel}
-        </span>
-        {showUnrealized ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
-            Plan
+      {showLegend ? (
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+            {valueLabel}
           </span>
-        ) : null}
-        {showExpenses ? (
-          <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Wydatki</span>
-        ) : null}
-      </div>
+          {showUnrealized ? (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+              Plan
+            </span>
+          ) : null}
+          {showExpenses ? (
+            <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">
+              Wydatki
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -905,7 +1005,9 @@ function TrendBars({
 export default function MoneyExperience({ summary }: Props) {
   const [selectedRange, setSelectedRange] = useState<RangeKey>("month");
   const [rangeOffset, setRangeOffset] = useState(0);
-  const [netTrendMode, setNetTrendMode] = useState<VisitsTrendMode>("month");
+  const [selectedNetYear, setSelectedNetYear] = useState(
+    () => parseDateKey(summary.todayKey).getFullYear(),
+  );
   const [visitsTrendMode, setVisitsTrendMode] = useState<VisitsTrendMode>("month");
   const [showUnrealizedNet, setShowUnrealizedNet] = useState(false);
   const [showUnrealizedVisits, setShowUnrealizedVisits] = useState(false);
@@ -917,14 +1019,18 @@ export default function MoneyExperience({ summary }: Props) {
     summary.completedAppointments,
     summary.expenseItems,
   );
-  const netTrend = buildNetTrend(
+  const financeYears = getAvailableFinanceYears(
     summary.todayKey,
-    netTrendMode,
+    summary.completedAppointments,
+    summary.expenseItems,
+    summary.plannedAppointments,
+  );
+  const netTrend = buildYearlyNetTrend(
+    selectedNetYear,
     summary.completedAppointments,
     summary.expenseItems,
     summary.plannedAppointments,
     summary.projected.averageIncomeLastMonth,
-    showUnrealizedNet,
   );
   const visitsTrend = buildVisitsTrend(
     summary.todayKey,
@@ -992,27 +1098,23 @@ export default function MoneyExperience({ summary }: Props) {
           setShowUnrealizedNet((currentValue) => !currentValue)
         }
         showExpenses
+        pageSize={12}
+        showLegend={false}
       >
-        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setNetTrendMode("month")}
-            className={`rounded-xl px-3 py-2 transition ${
-              netTrendMode === "month" ? "bg-slate-950 text-white" : "text-slate-600"
-            }`}
+        <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+          <span>Rok</span>
+          <select
+            value={selectedNetYear}
+            onChange={(event) => setSelectedNetYear(Number(event.target.value))}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none transition focus:border-slate-400"
           >
-            Miesiące
-          </button>
-          <button
-            type="button"
-            onClick={() => setNetTrendMode("week")}
-            className={`rounded-xl px-3 py-2 transition ${
-              netTrendMode === "week" ? "bg-slate-950 text-white" : "text-slate-600"
-            }`}
-          >
-            Tygodnie
-          </button>
-        </div>
+            {financeYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
       </TrendBars>
 
       <section className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm shadow-slate-200">

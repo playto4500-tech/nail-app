@@ -7,6 +7,7 @@ export type DisplayAppointmentStatus = AppointmentStatus | "overdue";
 export type AppointmentCompletionState = {
   price: number;
   tip: number;
+  addonIds: number[];
   addonNames: string[];
 };
 

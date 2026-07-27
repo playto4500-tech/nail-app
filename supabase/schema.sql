@@ -7,6 +7,9 @@ create table if not exists public.clients (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists clients_normalized_name_unique
+on public.clients ((lower(regexp_replace(btrim(name), '[[:space:]]+', ' ', 'g'))));
+
 create table if not exists public.services (
   id bigint generated always as identity primary key,
   category text not null check (category in ('service', 'addon')),

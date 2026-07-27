@@ -56,6 +56,13 @@ export async function createAppointmentAction(formData: FormData): Promise<Actio
       status: isFamilyType ? "family" : "new",
       notes: clientNotes,
     });
+
+    const persistedClient = await getClientById(finalClientId);
+
+    if (persistedClient) {
+      finalClientName = persistedClient.name;
+      finalInstagramHandle = persistedClient.instagramHandle;
+    }
   } else {
     const selectedClient = await getClientById(clientId);
 

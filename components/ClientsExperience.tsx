@@ -77,6 +77,47 @@ function getLatestVisitDate(visits: ClientVisit[]) {
   }, null);
 }
 
+function getPreviousClientVisits(visits: ClientVisit[], todayDateKey: string) {
+  return visits.filter(
+    (visit) => visit.status === "completed" || visit.date < todayDateKey,
+  );
+}
+
+function getNextClientVisit(visits: ClientVisit[], todayDateKey: string) {
+  return [...visits]
+    .filter(
+      (visit) =>
+        visit.date >= todayDateKey &&
+        visit.status !== "completed" &&
+        visit.status !== "cancelled",
+    )
+    .sort((first, second) => {
+      if (first.date !== second.date) {
+        return first.date.localeCompare(second.date);
+      }
+
+      return first.time.localeCompare(second.time);
+    })[0] ?? null;
+}
+
+function getClientStats(visits: ClientVisit[]) {
+  const completedVisits = visits.filter((visit) => visit.status === "completed");
+  const income = completedVisits.reduce(
+    (total, visit) => total + (visit.price ?? 0) + (visit.tip ?? 0),
+    0,
+  );
+  const tips = completedVisits.reduce((total, visit) => total + (visit.tip ?? 0), 0);
+  const averageVisitIncome =
+    completedVisits.length > 0 ? Math.round(income / completedVisits.length) : 0;
+
+  return {
+    averageVisitIncome,
+    completedCount: completedVisits.length,
+    income,
+    tips,
+  };
+}
+
 export default function ClientsExperience({ clients, visitsByClient }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -96,10 +137,10 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
       [...visibleClients].sort((first, second) => {
         if (sortMode === "oldestLastVisit") {
           const firstLastVisitDate = getLatestVisitDate(
-            visitsByClient[first.id] ?? [],
+            getPreviousClientVisits(visitsByClient[first.id] ?? [], todayDateKey),
           );
           const secondLastVisitDate = getLatestVisitDate(
-            visitsByClient[second.id] ?? [],
+            getPreviousClientVisits(visitsByClient[second.id] ?? [], todayDateKey),
           );
 
           if (!firstLastVisitDate && !secondLastVisitDate) {
@@ -134,7 +175,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
 
         return first.name.localeCompare(second.name, "pl");
       }),
-    [sortMode, visibleClients, visitsByClient],
+    [sortMode, visibleClients, visitsByClient, todayDateKey],
   );
 
   const selectedClient = useMemo(
@@ -145,9 +186,18 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
     () => visibleClients.find((client) => client.id === editingClientId) ?? null,
     [visibleClients, editingClientId],
   );
-  const selectedClientVisits = selectedClient
+  const selectedClientAllVisits = selectedClient
     ? visitsByClient[selectedClient.id] ?? []
     : [];
+  const selectedClientVisits = getPreviousClientVisits(
+    selectedClientAllVisits,
+    todayDateKey,
+  );
+  const selectedClientNextVisit = getNextClientVisit(
+    selectedClientAllVisits,
+    todayDateKey,
+  );
+  const selectedClientStats = getClientStats(selectedClientAllVisits);
   const hasOpenModal = Boolean(selectedClient || editingClient);
 
   function closeModals() {
@@ -292,7 +342,10 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
       </div>
 
       {sortedVisibleClients.map((client) => {
-        const clientVisits = visitsByClient[client.id] ?? [];
+        const clientVisits = getPreviousClientVisits(
+          visitsByClient[client.id] ?? [],
+          todayDateKey,
+        );
         const visitCount = clientVisits.length;
         const lastVisitDate = getLatestVisitDate(clientVisits);
         const lastVisitDaysAgo = lastVisitDate
@@ -519,7 +572,7 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                  Historia klientki
+                  Karta klientki
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-900">
                   {selectedClient.name}
@@ -531,6 +584,11 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                 ) : (
                   null
                 )}
+                <span
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-medium ${getClientClassificationClasses(selectedClient.classification)}`}
+                >
+                  {getClientClassificationLabel(selectedClient.classification)}
+                </span>
               </div>
               <button
                 type="button"
@@ -542,7 +600,83 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
               </button>
             </div>
 
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="rounded-[20px] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Zakończone wizyty
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                  {selectedClientStats.completedCount}
+                </p>
+              </div>
+              <div className="rounded-[20px] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Zysk
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {formatPrice(selectedClientStats.income)}
+                </p>
+              </div>
+              <div className="rounded-[20px] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Śr/Wizyta
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {formatPrice(selectedClientStats.averageVisitIncome)}
+                </p>
+              </div>
+              <div className="rounded-[20px] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Tipy
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {formatPrice(selectedClientStats.tips)}
+                </p>
+              </div>
+            </div>
+
+            {selectedClient.notes ? (
+              <div className="mt-4 rounded-[22px] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Notatki
+                </p>
+                <p className="mt-2 text-sm text-slate-700">{selectedClient.notes}</p>
+              </div>
+            ) : null}
+
+            <div className="mt-6 rounded-[22px] border border-slate-100 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Następna wizyta</p>
+              {selectedClientNextVisit ? (
+                <div className="mt-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {formatNumericDate(selectedClientNextVisit.date)} ·{" "}
+                      {selectedClientNextVisit.time}
+                    </p>
+                    {selectedClientNextVisit.serviceName ? (
+                      <p className="mt-1 text-sm text-slate-600">
+                        {selectedClientNextVisit.serviceName}
+                      </p>
+                    ) : null}
+                    {selectedClientNextVisit.notes ? (
+                      <p className="mt-2 text-sm text-slate-600">
+                        {selectedClientNextVisit.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                    {getStatusLabel(selectedClientNextVisit.status)}
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">
+                  Brak zaplanowanej następnej wizyty.
+                </p>
+              )}
+            </div>
+
             <div className="mt-6 space-y-3">
+              <p className="text-sm font-semibold text-slate-900">Poprzednie wizyty</p>
               {selectedClientVisits.length > 0 ? (
                 selectedClientVisits.map((visit) => (
                   <article
@@ -586,6 +720,15 @@ export default function ClientsExperience({ clients, visitsByClient }: Props) {
                   Ta klientka nie ma jeszcze poprzednich wizyt.
                 </div>
               )}
+            </div>
+
+            <div className="mt-6 rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Zdjęcia</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="aspect-square rounded-[18px] bg-white" />
+                <div className="aspect-square rounded-[18px] bg-white" />
+                <div className="aspect-square rounded-[18px] bg-white" />
+              </div>
             </div>
           </section>
         </div>

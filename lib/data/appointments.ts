@@ -15,6 +15,7 @@ export type Appointment = {
   time: string;
   serviceId: null | number;
   serviceName: null | string;
+  addonIds: number[];
   addonNames: string[];
   price: null | number;
   tip: null | number;
@@ -51,6 +52,7 @@ type AppointmentRow = {
 
 type AppointmentAddonRow = {
   appointment_id: number;
+  service_id: number;
   services:
     | null
     | {
@@ -85,12 +87,13 @@ export async function getAppointments(options?: { includeDeleted?: boolean }) {
 
   const appointmentRows = (appointmentsResponse.data ?? []) as AppointmentRow[];
   const appointmentIds = appointmentRows.map((appointment) => appointment.id);
-  const addonsByAppointmentId = new Map<number, string[]>();
+  const addonIdsByAppointmentId = new Map<number, number[]>();
+  const addonNamesByAppointmentId = new Map<number, string[]>();
 
   if (appointmentIds.length > 0) {
     const appointmentAddonsResponse = await supabase
       .from("appointment_addons")
-      .select("appointment_id, services(name)")
+      .select("appointment_id, service_id, services(name)")
       .in("appointment_id", appointmentIds);
 
     if (appointmentAddonsResponse.error) {
@@ -106,9 +109,13 @@ export async function getAppointments(options?: { includeDeleted?: boolean }) {
         return;
       }
 
-      const currentAddons = addonsByAppointmentId.get(item.appointment_id) ?? [];
-      currentAddons.push(normalizeKnownServiceName(relatedService.name));
-      addonsByAppointmentId.set(item.appointment_id, currentAddons);
+      const currentAddonIds = addonIdsByAppointmentId.get(item.appointment_id) ?? [];
+      currentAddonIds.push(item.service_id);
+      addonIdsByAppointmentId.set(item.appointment_id, currentAddonIds);
+
+      const currentAddonNames = addonNamesByAppointmentId.get(item.appointment_id) ?? [];
+      currentAddonNames.push(normalizeKnownServiceName(relatedService.name));
+      addonNamesByAppointmentId.set(item.appointment_id, currentAddonNames);
     });
   }
 
@@ -129,7 +136,8 @@ export async function getAppointments(options?: { includeDeleted?: boolean }) {
       serviceName: appointment.service_name
         ? normalizeKnownServiceName(appointment.service_name)
         : null,
-      addonNames: addonsByAppointmentId.get(appointment.id) ?? [],
+      addonIds: addonIdsByAppointmentId.get(appointment.id) ?? [],
+      addonNames: addonNamesByAppointmentId.get(appointment.id) ?? [],
       price: appointment.appointment_price,
       tip: appointment.appointment_tip,
       status: appointment.status,
@@ -186,26 +194,44 @@ export async function updateAppointment(input: {
   notes: string;
 }) {
   const supabase = await createClient();
+  const appointmentUpdate: Partial<AppointmentRow> = {
+    client_id: input.clientId,
+    client_name: input.clientName,
+    client_instagram_handle: input.clientInstagramHandle || null,
+    appointment_date: input.date,
+    appointment_time: input.time,
+    status: input.status,
+    notes: input.notes || null,
+    deleted_at: null,
+  };
+
+  if (input.status !== "completed") {
+    appointmentUpdate.service_id = null;
+    appointmentUpdate.service_name = null;
+    appointmentUpdate.appointment_price = null;
+    appointmentUpdate.appointment_tip = null;
+  }
+
   const { error } = await supabase
     .from("appointments")
-    .update({
-      client_id: input.clientId,
-      client_name: input.clientName,
-      client_instagram_handle: input.clientInstagramHandle || null,
-      appointment_date: input.date,
-      appointment_time: input.time,
-      service_id: null,
-      service_name: null,
-      appointment_price: null,
-      appointment_tip: null,
-      status: input.status,
-      notes: input.notes || null,
-      deleted_at: null,
-    })
+    .update(appointmentUpdate)
     .eq("id", input.appointmentId);
 
   if (error) {
     throw new Error(`Failed to update appointment: ${error.message}`);
+  }
+
+  if (input.status !== "completed") {
+    const deleteAddonsResponse = await supabase
+      .from("appointment_addons")
+      .delete()
+      .eq("appointment_id", input.appointmentId);
+
+    if (deleteAddonsResponse.error) {
+      throw new Error(
+        `Failed to clear appointment addons: ${deleteAddonsResponse.error.message}`,
+      );
+    }
   }
 }
 
